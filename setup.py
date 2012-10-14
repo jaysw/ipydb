@@ -2,7 +2,7 @@
 from setuptools import setup
 import ipydb
 
-requires = ['SQLAlchemy', 'ipython']
+requires = ['SQLAlchemy', 'ipython', 'python-dateutil']
 
 setup(
     name='ipydb',
