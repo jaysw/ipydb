@@ -45,7 +45,7 @@ class SqlMagics(Magics):
         if cell is not None:
             param += '\n' + cell  
         result = self.ipydb.execute(param)
-        if result:
+        if result and result.returns_rows:
             self.ipydb.render_result(result)
 
     @line_cell_magic
