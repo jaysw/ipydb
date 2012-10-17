@@ -126,8 +126,6 @@ class SqlPlugin(Plugin):
                 # use server-side cursors by default (does this work with myISAM?)
                 connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
             self.connect_url(self.make_connection_url(config), connect_args=connect_args)
-        if self.connected:
-            self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return self.connected
 
     def connect_url(self, url, connect_args={}):
@@ -137,6 +135,7 @@ class SqlPlugin(Plugin):
             print "ipydb is connecting to: %s" % safe_url
         self.engine = sa.engine.create_engine(url, connect_args=connect_args)
         self.connected = True
+        self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return True
 
     def make_connection_url(self, config):
