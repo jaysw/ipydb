@@ -154,40 +154,49 @@ class SqlPlugin(Plugin):
             result = self.engine.execute(query)
         return result
 
-    def show_tables(self, pattern=None):
-        if not pattern:
-            pattern = '*' # matchall
-        if not self.connected:
-            print self.not_connected_message
-        else:
-            print '\n'.join(sorted(fnmatch.filter(self.engine.table_names(), pattern)))
-
-    def show_fields(self, tablepattern, fieldpattern=None):
-        orig_fieldpattern = fieldpattern
+    def show_tables(self, *globs):
         if not self.connected:
             print self.not_connected_message
             return
-        if not fieldpattern:
-            fieldpattern = '*'
-        matched = False
-        for tablename in fnmatch.filter(self.engine.table_names(), tablepattern):
-            print tablename
-            print '-' * len(tablename)
-            # XXX: this might not be thread-safe...
-            # TODO: think about access here, and the CompletionDataAccessor...
+        matches = set()
+        tablenames = self.completion_data.tables(self.engine)
+        if not globs:
+            matches = tablenames
+        else:
+            for glob in globs:
+                matches.update(fnmatch.filter(tablenames, glob))
+        print '\n'.join(sorted(matches))
+
+    def show_fields(self, *globs):
+        if not self.connected:
+            print self.not_connected_message
+            return
+        matches = set()
+        dottedfields = self.completion_data.dottedfields(self.engine)
+        if not globs:
+            matches = dottedfields
+        for glob in globs:
+            matches.update(fnmatch.filter(dottedfields, glob))
+        tprev = None
+        for match in sorted(matches):
+            tablename, fieldname = match.split('.', 1)
+            if tablename != tprev:
+                if tprev is not None:
+                    print
+                print tablename
+                print '-' * len(tablename)
             meta = sa.MetaData(bind=self.engine)
-            meta.reflect(only=[tablename])  # XXX: check threadsafety
+            meta.reflect(only=[tablename])  # XXX: this is slow...
             table = meta.tables[tablename]
-            for col in table.columns:
-                if fnmatch.fnmatch(col.name.lower(),fieldpattern):
-                    matched = True
-                    print "    %-35s%s" % (col.name, col.type)
-            print
-        if not matched:
-            msg = "No matches for %s" % tablepattern
-            if orig_fieldpattern:
-                msg += '.' + orig_fieldpattern
-            print msg
+            column = None
+            for col in table.columns: # completion data is lcased...
+                if col.name.lower() == fieldname:
+                    column = col
+                    break
+            if column is not None:
+                print "    %-35s%s" % (column.name, column.type)
+            tprev = tablename
+        print
 
     def render_result(self, result):
         try:
