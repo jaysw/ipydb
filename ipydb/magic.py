@@ -77,23 +77,23 @@ class SqlMagics(Magics):
     def show_tables(self, param=''):
         """Show a list of tables for the current db connection 
 
-        Usage: %show_tables [GLOB]
+        Usage: %show_tables [GLOB1 GLOB2...]
 
-        Only show tables matching GLOB if given
+        Show tables matching GLOB if given
         Example usage:
             %show_tables
                 : lists all avaiable tables for the current connection
-            %show_tables *p*
-                : shows tables having a 'p' in their name
+            %show_tables *p* *z*
+                : shows tables having a 'p' or a 'z' in their name
 
         """
-        self.ipydb.show_tables(param)
+        self.ipydb.show_tables(*param.split())
 
     @line_magic
     def show_fields(self, param=''):
         """Show a list of fields and data types for the given table
 
-        Usage: %show_fields TABLE_GLOB[.FIELD_GLOB]
+        Usage: %show_fields TABLE_GLOB[.FIELD_GLOB] [GLOB2...]
 
         Examples:
             show_fields person
@@ -104,21 +104,7 @@ class SqlMagics(Magics):
                 : show fields having id in their name for all tables
                   having 'person' in their name
         """
-        def usage():
-            return "Usage: %show_fields TABLE_PATTERN[.FIELD_PATTERN]" # XXX: extract
-        if param:
-            table = None
-            field = None
-            bits = param.split('.')
-            if len(bits) == 1:
-                table = bits[0]
-            elif len(bits) == 2:
-                table, field = bits
-            else:
-                print usage()
-            self.ipydb.show_fields(table, field)
-        else:
-            print usage()
+        self.ipydb.show_fields(*param.split())
 
     @line_magic
     def sqlformat(self, param=None):
