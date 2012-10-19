@@ -175,6 +175,9 @@ class SqlPlugin(Plugin):
         if not globs:
             matches = dottedfields
         for glob in globs:
+            bits = glob.split('.', 1)
+            if len(bits) == 1: # table name only
+                glob += '.*'
             matches.update(fnmatch.filter(dottedfields, glob))
         tprev = None
         for match in sorted(matches):
