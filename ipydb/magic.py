@@ -107,6 +107,24 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
+    def what_references(self, param=""):
+        """Shows foreign keys which reference the given field
+
+        Usage: %what_references TABLE_NAME[.FIELD_NAME]
+
+        If FIELD_NAME is ommitted, all fields in TABLE_NAME are checked as
+        the target of a foreign key reference
+
+        Examples:
+            what_referenes person.id
+                : shows all fields having a foreign key referencing person.id
+        """
+        if not param.strip() or len(param.split()) != 1:
+            print "Usage: %what_references TABLE_NAME[.FIELD_NAME]"
+            return
+        self.ipydb.what_references(param)
+
+    @line_magic
     def sqlformat(self, param=None):
         """Usage: %sqlformat <table|csv>"""
         if not param or param not in ('csv', 'table'):

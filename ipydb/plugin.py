@@ -130,7 +130,7 @@ class SqlPlugin(Plugin):
             # I think there's some weirdness 
             # with cx_oracle/oracle versions I'm using. 
             import cx_Oracle
-            if not getattr(self, '__cxmakedsn', cx_Oracle):
+            if not getattr(SqlPlugin, '__cxmakedsn', cx_Oracle):
                 SqlPlugin.__cxmakedsn = cx_Oracle.makedsn
             cx_Oracle.makedsn = lambda *args, **kwargs: \
                                     SqlPlugin.__cxmakedsn(*args, **kwargs).replace('SID', 'SERVICE_NAME')
@@ -206,6 +206,41 @@ class SqlPlugin(Plugin):
             tprev = tablename
         print
 
+    def what_references(self, arg):
+        if not self.connected:
+            print self.not_connected_message
+            return
+        bits = arg.split('.', 1)
+        tablename = bits[0]
+        fieldname = bits[1] if len(bits) > 1 else ''
+        field = table = None
+        meta = sa.MetaData(bind=self.engine)
+        meta.reflect() # XXX: can be very slow!
+        for tbl in meta.sorted_tables:
+            if tbl.name.lower() == tablename.lower():
+                table = tbl
+                break
+        if table is None:
+            print "Could not find table `%s`" % (tablename,)
+            return
+        if fieldname:
+            for col in table.columns:
+                if col.name == fieldname:
+                    field = col
+                    break
+        if fieldname and field is None:
+            print "Could not find `%s.%s`" % (tablename, fieldname)
+            return
+        for tbl in meta.sorted_tables:
+            for fk in tbl.foreign_keys:
+                if (field is not None and fk.references(table) \
+                        and bool(fk.get_referent(table) == field)) \
+                     or (field is None and fk.references(table)):
+                    print "%s.%s REFERENCES %s" % (fk.parent.table.name, 
+                                                   fk.parent.name, 
+                                                   fk.target_fullname)
+
+
     def render_result(self, result):
         try:
             out = os.popen('less -FXRiS','w') ## XXX: use ipython's pager abstraction
@@ -266,7 +301,8 @@ class SqlPlugin(Plugin):
             return True # this is unfortunate...
         else:
             first_token = line_buffer.split()[0].lstrip('%')
-            return first_token in "show_fields connect sql select insert update delete sqlformat".split()
+            return first_token in "what_references show_fields connect "\
+                                  "sql select insert update delete sqlformat".split()
 
     def complete(self, completer, text, line_buffer=None):
         matches = []
