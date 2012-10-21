@@ -8,14 +8,24 @@ Usage
 
     $ ipython
     In [1] : %load_ext ipydb
-    In [2] : %connect_url mysql://user:pass@localhost/employees
-    In [3] localhost/employees: %show_tables
-        departments
-        dept_emp
-        dept_manager
-        employees
-        salaries
-        titles
+    In [2] : %automagic on
+    Automagic is ON, % prefix IS NOT needed for line magics.
+
+    In [3] : connect_url mysql://user:pass@localhost/employees
+    In [4] localhost/employees: show_tables
+    departments
+    dept_emp
+    dept_manager
+    employees
+    salaries
+    titles
+
+    In [5] localhost/employees: show_fields departments
+    departments
+    -----------
+        dept_name                          VARCHAR(40)
+        dept_no                            CHAR(4)
+
     In [4] localhost/employees: select * from departments order by dept_name
     +---------+--------------------+
     | dept_no | dept_name          |

@@ -7,7 +7,7 @@ Usage:
     $ ipython
     In [1]: %load_ext ipydb            # ipydb needs to be loadable via sys.path
     In [2]: %connect_url mysql://user:pass@localhost/mydbname
-    In [3]: select * from person order by id desc
+    In [3]: %select * from person order by id desc
 
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.

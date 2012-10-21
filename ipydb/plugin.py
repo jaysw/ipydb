@@ -97,7 +97,6 @@ class SqlPlugin(Plugin):
         try:
             url = sa.engine.url.make_url(str(url_string))
             url.password = 'xxx'
-            url = str(url)
         except:
             pass
         return url
@@ -117,17 +116,6 @@ class SqlPlugin(Plugin):
         else:
             config = configs[configname]
             connect_args = {}
-            if config['type'] == 'oracle':
-                # not sure why we need this hack - 
-                # I think there's some weirdness 
-                # with cx_oracle version i'm using. 
-                import cx_Oracle
-                orig = cx_Oracle.makedsn
-                cx_Oracle.makedsn = lambda *args, **kwargs: orig(*args, **kwargs).replace('SID', 'SERVICE_NAME')
-            elif config['type'] == 'mysql':
-                import MySQLdb.cursors
-                # use server-side cursors by default (does this work with myISAM?)
-                connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
             self.connect_url(self.make_connection_url(config), connect_args=connect_args)
             self.nickname = configname
         return self.connected
@@ -137,6 +125,19 @@ class SqlPlugin(Plugin):
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
+        if safe_url.drivername == 'oracle':
+            # not sure why we need this hack - 
+            # I think there's some weirdness 
+            # with cx_oracle/oracle versions I'm using. 
+            import cx_Oracle
+            if not getattr(self, '__cxmakedsn', cx_Oracle):
+                SqlPlugin.__cxmakedsn = cx_Oracle.makedsn
+            cx_Oracle.makedsn = lambda *args, **kwargs: \
+                                    SqlPlugin.__cxmakedsn(*args, **kwargs).replace('SID', 'SERVICE_NAME')
+        elif safe_url.drivername == 'mysql':
+            import MySQLdb.cursors
+            # use server-side cursors by default (does this work with myISAM?)
+            connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
         self.engine = sa.engine.create_engine(url, connect_args=connect_args)
         self.connected = True
         self.nickname = None
@@ -254,7 +255,6 @@ class SqlPlugin(Plugin):
         writer = csv.writer(out)
         writer.writerow(result.keys())
         writer.writerows(result)
-
 
     def interested_in(self, completer, text, line_buffer=None):
         """return True if ipydb should try to do completions on the current line_buffer

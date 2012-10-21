@@ -130,7 +130,7 @@ class SqlMagics(Magics):
             username: root
             password: xxxx
             host: localhost
-            database:timecollector
+            database: employees
 
             [myotherdb]
             type: sqlite
