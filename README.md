@@ -26,7 +26,7 @@ Usage
         dept_name                          VARCHAR(40)
         dept_no                            CHAR(4)
 
-    In [4] localhost/employees: select * from departments order by dept_name
+    In [6] localhost/employees: select * from departments order by dept_name
     +---------+--------------------+
     | dept_no | dept_name          |
     +---------+--------------------+
