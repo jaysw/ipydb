@@ -31,16 +31,27 @@ class CompletionDataAccessor(object):
         self.dbfile = os.path.join(locate_profile(), 'ipydb.sqlite')
         self.dburl = 'sqlite:////%s' % self.dbfile
         self.create_schema()
+        self._sa_metadata = None
 
     def _meta(self):
         return {
             'tables': set(),
             'fields': set(),
             'dottedfields': set(),
+            'types' : dict(),
             'isempty' : True,
             'reflecting': False,
             'created': datetime.datetime(datetime.MINYEAR, 1, 1)
         }
+
+    def sa_metadata():
+        def fget(self):
+            meta = getattr(self, '_sa_metadata', None)
+            if meta is None:
+                self._sa_metadata = sa.MetaData()
+            return self._sa_metadata
+        return locals()
+    sa_metadata = property(**sa_metadata())
     
     def get_metadata(self, db, noisy=True):
         db_key = self.get_db_key(db.url)
@@ -67,23 +78,24 @@ class CompletionDataAccessor(object):
         self.metadata[db_key]['created'] = datetime.datetime.now()
         self.metadata[db_key]['reflecting'] = False
 
-        # write out with a single thread:
-        with sqlite3.connect(self.dbfile) as sqconn:
-            for tablename, fieldname in ( f.split('.') for f in self.metadata[db_key]['dottedfields'] ):
-                self.write(sqconn, db_key, tablename, fieldname) # might already be thread safe?
+        # write to database. 
+        self.write_all(db_key)
 
     def reflect_table(self, arg):
         target_db, db_key, tablename = arg # XXX: this sux
-        metadata = sa.MetaData(bind=target_db)
+        metadata = self.sa_metadata # XXX: not threadsafe
+        self.sa_metadata.bind = target_db
         t = sa.Table(tablename, metadata, autoload=True)
-        fieldnames = map(unicode.lower, t.columns.keys())
-        dotted = map(lambda fieldname: tablename + '.' + fieldname, fieldnames)
-        # synchronise self.metadata !!
+        tablename = t.name.lower()
         self.metadata[db_key]['tables'].add(tablename)
-        self.metadata[db_key]['fields'].update(fieldnames)
-        self.metadata[db_key]['dottedfields'].update(dotted)
         self.metadata[db_key]['isempty'] = False
-
+        for col in t.columns:
+            fieldname = col.name.lower()
+            dottedname = tablename + '.' + fieldname
+            self.metadata[db_key]['fields'].add(fieldname)
+            self.metadata[db_key]['dottedfields'].add(dottedname)
+            self.metadata[db_key]['types'][dottedname] = str(col.type)
+        
     def get_db_key(self, url):
         '''minimal unique key for describing a db connection'''
         return str(URL(url.drivername, url.username, host=url.host,
@@ -95,7 +107,8 @@ class CompletionDataAccessor(object):
                 select 
                     t.db_key,
                     t.name as tablename, 
-                    f.name as fieldname
+                    f.name as fieldname,
+                    f.type as type
                 from dbtable t inner join dbfield f 
                     on f.table_id = t.id
                 where
@@ -107,6 +120,7 @@ class CompletionDataAccessor(object):
                 self.metadata[db_key]['fields'].add(r[2])
                 self.metadata[db_key]['dottedfields'].add(
                         '%s.%s' % (r[1], r[2]))
+                self.metadata[db_key]['types']['%s.%s' % (r[1], r[2])] = r[3]
 
             result = db.execute("select max(created) as created from dbtable " \
                     "where db_key = :db_key", dict(db_key=db_key)).fetchone()
@@ -140,6 +154,7 @@ class CompletionDataAccessor(object):
                         on delete cascade
                         on update cascade,
                     name text not null,
+                    type text,
                     constraint db_field_unique
                         unique (table_id, name) 
                         on conflict rollback
@@ -153,12 +168,23 @@ class CompletionDataAccessor(object):
 
     def fields(self, db):
         db_key = self.get_db_key(db.url)
-        return self.metadata[db_key]['fields']        
+        return self.metadata[db_key]['fields']
+
     def dottedfields(self, db):
         db_key = self.get_db_key(db.url)
         return self.metadata[db_key]['dottedfields']
 
-    def write(self, sqconn, db_key, table, field):
+    def types(self, db):
+        return self.metadata[self.get_db_key(db.url)]['types']
+
+    def write_all(self, db_key):
+        with sqlite3.connect(self.dbfile) as sqconn:
+            for dottedname in self.metadata[db_key]['dottedfields']:
+                tablename, fieldname = dottedname.split('.', 1)
+                type_ = self.metadata[db_key]['types'].get(dottedname, '')
+                self.write(sqconn, db_key, tablename, fieldname, type_) # might already be thread safe?
+
+    def write(self, sqconn, db_key, table, field, type_=''):
         res = sqconn.execute(
             "select id from dbtable where db_key=:db_key and name=:table",
             dict(db_key=db_key, table=table))
@@ -174,9 +200,15 @@ class CompletionDataAccessor(object):
             table_id = res.lastrowid
         try:
             sqconn.execute("""
-                insert into dbfield(table_id, name) values (
-                    :table_id, :field)""",
-                dict(table_id=table_id, field=field))
-        except sqlite3.IntegrityError:
-            pass #already exists
+                insert into dbfield(table_id, name, type) values (
+                    :table_id, :field, :type)""",
+                dict(table_id=table_id, field=field, type=type_))
+        except sqlite3.IntegrityError: # exists
+            sqconn.execute("""
+                update dbfield set 
+                    type = :type
+                where
+                    table_id = :table_id
+                    and name = :field""",
+                dict(table_id=table_id, field=field, type=type_))
 

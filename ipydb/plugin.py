@@ -68,6 +68,7 @@ class SqlPlugin(Plugin):
         self.connected = False
         self.engine = None
         self.nickname = None
+        self._metadata = None
 
     def debug(self, *args):
         if self.shell.debug:
@@ -119,6 +120,17 @@ class SqlPlugin(Plugin):
             self.connect_url(self.make_connection_url(config), connect_args=connect_args)
             self.nickname = configname
         return self.connected
+
+    def metadata():
+        def fget(self):
+            if not self.connected:
+                return None
+            meta = getattr(self, '_metadata', None)
+            if meta is None or self._metadata.bind != self.engine:
+                self._metadata = sa.MetaData(bind=self.engine)
+            return self._metadata
+        return locals()
+    metadata = property(**metadata())
 
     def connect_url(self, url, connect_args={}):
         """Connect to a datasbase using an SqlAlchemy URL"""
@@ -193,16 +205,7 @@ class SqlPlugin(Plugin):
                     print
                 print tablename
                 print '-' * len(tablename)
-            meta = sa.MetaData(bind=self.engine)
-            meta.reflect(only=[tablename])  # XXX: this is slow...
-            table = meta.tables[tablename]
-            column = None
-            for col in table.columns: # completion data is lcased...
-                if col.name.lower() == fieldname:
-                    column = col
-                    break
-            if column is not None:
-                print "    %-35s%s" % (column.name, column.type)
+            print "    %-35s%s" % (fieldname, self.completion_data.types(self.engine).get(match, '[?]'))
             tprev = tablename
         print
 
@@ -214,8 +217,9 @@ class SqlPlugin(Plugin):
         tablename = bits[0]
         fieldname = bits[1] if len(bits) > 1 else ''
         field = table = None
-        meta = sa.MetaData(bind=self.engine)
-        meta.reflect() # XXX: can be very slow!
+        #meta = self.metadata
+        meta = self.completion_data.sa_metadata
+        meta.reflect() # XXX: can be very slow! TODO: don't do this
         for tname, tbl in meta.tables.iteritems():
             if tbl.name.lower() == tablename.lower():
                 table = tbl
