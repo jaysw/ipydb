@@ -126,14 +126,14 @@ class SqlPlugin(Plugin):
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
         if safe_url.drivername == 'oracle':
-            # not sure why we need this hack - 
+            # not sure why we need this horrible hack - 
             # I think there's some weirdness 
             # with cx_oracle/oracle versions I'm using. 
             import cx_Oracle
-            if not getattr(SqlPlugin, '__cxmakedsn', cx_Oracle):
-                SqlPlugin.__cxmakedsn = cx_Oracle.makedsn
-            cx_Oracle.makedsn = lambda *args, **kwargs: \
-                                    SqlPlugin.__cxmakedsn(*args, **kwargs).replace('SID', 'SERVICE_NAME')
+            if not getattr(cx_Oracle, '_cxmakedsn', None):
+                setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
+                cx_Oracle.makedsn = lambda *args, **kwargs: \
+                                        cx_Oracle._cxmakedsn(*args, **kwargs).replace('SID', 'SERVICE_NAME')
         elif safe_url.drivername == 'mysql':
             import MySQLdb.cursors
             # use server-side cursors by default (does this work with myISAM?)
@@ -216,7 +216,7 @@ class SqlPlugin(Plugin):
         field = table = None
         meta = sa.MetaData(bind=self.engine)
         meta.reflect() # XXX: can be very slow!
-        for tbl in meta.sorted_tables:
+        for tname, tbl in meta.tables.iteritems():
             if tbl.name.lower() == tablename.lower():
                 table = tbl
                 break
@@ -231,14 +231,20 @@ class SqlPlugin(Plugin):
         if fieldname and field is None:
             print "Could not find `%s.%s`" % (tablename, fieldname)
             return
-        for tbl in meta.sorted_tables:
+        refs = []
+        for tname, tbl in meta.tables.iteritems():
             for fk in tbl.foreign_keys:
                 if (field is not None and fk.references(table) \
                         and bool(fk.get_referent(table) == field)) \
-                     or (field is None and fk.references(table)):
-                    print "%s.%s REFERENCES %s" % (fk.parent.table.name, 
-                                                   fk.parent.name, 
-                                                   fk.target_fullname)
+                        or (field is None and fk.references(table)):
+                    refs.append(("%s.%s" % (fk.parent.table.name, 
+                                           fk.parent.name),
+                                fk.target_fullname))
+        if refs:
+            maxleft = max(map(lambda x: len(x[0]), refs)) + 2
+            fmt = "%%-%ss references %%s" % (maxleft,)
+        for ref in sorted(refs, key=lambda x: x[0]):
+            print fmt % ref
 
 
     def render_result(self, result):
