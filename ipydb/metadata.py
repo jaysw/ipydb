@@ -30,6 +30,7 @@ class CompletionDataAccessor(object):
         self.metadata = defaultdict(self._meta)
         self.dbfile = os.path.join(locate_profile(), 'ipydb.sqlite')
         self.dburl = 'sqlite:////%s' % self.dbfile
+        self.db = sa.engine.create_engine(self.dburl)
         self.create_schema()
         self._sa_metadata = None
 
@@ -130,11 +131,10 @@ class CompletionDataAccessor(object):
                 self.metadata[db_key]['created'] = datetime.datetime.now()
 
     def create_schema(self):
-        db = sa.engine.create_engine(self.dburl)
         meta = sa.MetaData()
-        meta.reflect(bind=db)
+        meta.reflect(bind=self.db)
         if 'dbtable' not in meta.tables:
-            db.execute("""
+            self.db.execute("""
                 create table dbtable (
                     id integer primary key,
                     db_key text not null, 
@@ -146,7 +146,7 @@ class CompletionDataAccessor(object):
                 )
             """)
         if 'dbfield' not in meta.tables:
-            db.execute("""
+            self.db.execute("""
                 create table dbfield (
                     id integer primary key,
                     table_id integer not null
@@ -161,7 +161,19 @@ class CompletionDataAccessor(object):
                 )
             """)
 
-    # some convenience 'getters'
+    def flush(self):
+        self.pool.terminate()
+        self.pool.join()
+        self.metadata = defaultdict(self._meta)
+        self.delete_schema()
+        self.create_schema()
+        self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
+
+
+    def delete_schema(self):
+        self.db.execute("""drop table dbfield""")
+        self.db.execute("""drop table dbtable""")
+
     def tables(self, db):
         db_key = self.get_db_key(db.url)
         return self.metadata[db_key]['tables']

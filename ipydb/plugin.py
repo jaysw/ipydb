@@ -156,6 +156,13 @@ class SqlPlugin(Plugin):
         self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return True
 
+    def flush_metadata(self):
+        print "Deleting metadata..."
+        self.completion_data.flush()
+        if self.connected:
+            self.completion_data.get_metadata(self.engine)
+
+
     def make_connection_url(self, config):
         cfg = defaultdict(str)
         cfg.update(config)

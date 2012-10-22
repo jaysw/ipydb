@@ -174,3 +174,8 @@ class SqlMagics(Magics):
         You will need to ensure that you have installed a python driver for your chosen database.
         see: http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases"""
         self.ipydb.connect_url(param)
+
+    @line_magic
+    def flush_metadata(self, arg):
+        """Flush all schema caches and re-read for the current connection (if one exists)"""
+        self.ipydb.flush_metadata()
