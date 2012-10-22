@@ -186,6 +186,10 @@ class CompletionDataAccessor(object):
         db_key = self.get_db_key(db.url)
         return self.metadata[db_key]['dottedfields']
 
+    def reflecting(self, db):
+        db_key = self.get_db_key(db.url)
+        return self.metadata[db_key]['reflecting']
+
     def types(self, db):
         return self.metadata[self.get_db_key(db.url)]['types']
 

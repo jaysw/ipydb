@@ -21,6 +21,22 @@ class SqlMagics(Magics):
         """Show this help message"""
         from ipydb import ipydb_help # XXX: recursive import problem...
         ipydb_help()
+
+    @line_magic
+    def begin(self, arg):
+        """Start a transaction"""
+        self.ipydb.begin()
+
+    @line_magic
+    def commit(self, arg):
+        """Commit active transaction, if one exists"""
+        self.ipydb.commit()
+
+
+    @line_magic
+    def rollback(self, arg):
+        """Rollback active transaction, if one exists"""
+        self.ipydb.rollback()
     
     @line_cell_magic
     def sql(self, param='', cell=None):

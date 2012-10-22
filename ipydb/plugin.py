@@ -69,6 +69,8 @@ class SqlPlugin(Plugin):
         self.engine = None
         self.nickname = None
         self._metadata = None
+        self.autocommit = True
+        self.trans_ctx = None
 
     def debug(self, *args):
         if self.shell.debug:
@@ -87,7 +89,9 @@ class SqlPlugin(Plugin):
                     host = host.split('.')[0]
                 host = host[:15] # don't like long hostnames
                 db = self.engine.url.database[:15]
-                return '%s/%s' % (host, db)
+                ref = '!' if self.completion_data.reflecting(self.engine) else ''
+                tx = '*' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
+                return '%s%s/%s%s' % (ref, host, db, tx)
             except:
                 return ''
 
@@ -175,8 +179,32 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
         else:
-            result = self.engine.execute(query)
+            if self.trans_ctx and self.trans_ctx.transaction.is_active:
+                result = self.trans_ctx.conn.execute(query)
+            else:
+                result = self.engine.execute(query)
         return result
+
+    def begin(self):
+        if not self.trans_ctx or not self.trans_ctx.transaction.is_active:
+            self.trans_ctx = self.engine.begin()
+        else:
+            print "You are already in a transaction block and nesting is not supported"
+
+    def commit(self):
+        if self.trans_ctx:
+            with self.trans_ctx:
+                pass
+            self.trans_ctx = None
+        else:
+            print "No active transaction"
+
+    def rollback(self):
+        if self.trans_ctx:
+            self.trans_ctx.transaction.rollback()
+            self.trans_ctx = None
+        else:
+            print "No active transaction"
 
     def show_tables(self, *globs):
         if not self.connected:
