@@ -80,21 +80,30 @@ class SqlPlugin(Plugin):
         """return a string indicating current host/db for use by ipython.prompt_manager"""
         if not self.connected:
             return ''
-        elif self.nickname:
-            return self.nickname
-        else:
-            try:
-                host = self.engine.url.host
-                if '.' in host:
-                    host = host.split('.')[0]
-                host = host[:15] # don't like long hostnames
-                db = self.engine.url.database[:15]
-                ref = '!' if self.completion_data.reflecting(self.engine) else ''
-                tx = '*' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
-                return '%s%s/%s%s' % (ref, host, db, tx)
-            except:
-                return ''
+        host = self.engine.url.host
+        if '.' in host:
+            host = host.split('.')[0]
+        host = host[:15] # don't like long hostnames
+        db = self.engine.url.database[:15]
+        url = "%s/%s" % (host, db)
+        if self.nickname:
+            url = self.nickname
+        return url
 
+    def get_transaction_prompt1(self, *args, **kw):
+        """return a string indicating the transaction state for use in PS1"""
+        if not self.connected:
+            return ''
+        # really want this: ⚡ 
+        #but looks like IPython is expecting ascii for the PS1!? 
+        return ' *' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
+
+    def get_reflecting_prompt1(self, *args, **kw):
+        """return a string indicating if the background metadata reflector is running"""
+        if not self.connected:
+            return ''
+        return '! ' if self.completion_data.reflecting(self.engine) else ''
+        
     def safe_url(self, url_string):
         """return url_string with password removed or 
         None if url_string is not parseable"""
@@ -186,12 +195,18 @@ class SqlPlugin(Plugin):
         return result
 
     def begin(self):
+        if not self.connected:
+            print self.not_connected_message
+            return
         if not self.trans_ctx or not self.trans_ctx.transaction.is_active:
             self.trans_ctx = self.engine.begin()
         else:
             print "You are already in a transaction block and nesting is not supported"
 
     def commit(self):
+        if not self.connected:
+            print self.not_connected_message
+            return
         if self.trans_ctx:
             with self.trans_ctx:
                 pass
@@ -200,6 +215,9 @@ class SqlPlugin(Plugin):
             print "No active transaction"
 
     def rollback(self):
+        if not self.connected:
+            print self.not_connected_message
+            return
         if self.trans_ctx:
             self.trans_ctx.transaction.rollback()
             self.trans_ctx = None

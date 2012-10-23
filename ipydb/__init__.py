@@ -41,10 +41,12 @@ def configure_prompt(ipydb):
     global _backup_prompt1
     ip = ipydb.shell
     ip.prompt_manager.lazy_evaluate_fields['_ipydb'] = LazyEvaluate(ipydb.get_db_prompt1)
+    ip.prompt_manager.lazy_evaluate_fields['_reflecting'] = LazyEvaluate(ipydb.get_reflecting_prompt1)
+    ip.prompt_manager.lazy_evaluate_fields['_tx'] = LazyEvaluate(ipydb.get_transaction_prompt1)
     tmpl = ip.prompt_manager.in_template
     _backup_prompt1 = tmpl
     tmpl = tmpl.rstrip(': ')
-    tmpl += ' {color.Green}{_ipydb}: '
+    tmpl += ' {color.LightPurple}{_reflecting}{color.Cyan}{_ipydb}{color.LightRed}{_tx}{color.Green}: '
     ip.prompt_manager.in_template = tmpl
 
 def ipydb_help():
