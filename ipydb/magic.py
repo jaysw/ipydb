@@ -124,7 +124,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def what_references(self, param=""):
-        """Shows foreign keys which reference the given field
+        """Shows a list of all foreign keys that reference the given field or table
 
         Usage: %what_references TABLE_NAME[.FIELD_NAME]
 
