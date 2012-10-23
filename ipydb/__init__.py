@@ -46,7 +46,7 @@ def configure_prompt(ipydb):
     tmpl = ip.prompt_manager.in_template
     _backup_prompt1 = tmpl
     tmpl = tmpl.rstrip(': ')
-    tmpl += ' {color.LightPurple}{_reflecting}{color.Cyan}{_ipydb}{color.LightRed}{_tx}{color.Green}: '
+    tmpl += '{color.LightPurple}{_reflecting}{color.Cyan}{_ipydb}{color.LightRed}{_tx}{color.Green}: '
     ip.prompt_manager.in_template = tmpl
 
 def ipydb_help():

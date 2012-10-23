@@ -88,7 +88,7 @@ class SqlPlugin(Plugin):
         url = "%s/%s" % (host, db)
         if self.nickname:
             url = self.nickname
-        return url
+        return " " + url
 
     def get_transaction_prompt1(self, *args, **kw):
         """return a string indicating the transaction state for use in PS1"""
@@ -102,7 +102,7 @@ class SqlPlugin(Plugin):
         """return a string indicating if the background metadata reflector is running"""
         if not self.connected:
             return ''
-        return '! ' if self.completion_data.reflecting(self.engine) else ''
+        return ' !' if self.completion_data.reflecting(self.engine) else ''
         
     def safe_url(self, url_string):
         """return url_string with password removed or 
