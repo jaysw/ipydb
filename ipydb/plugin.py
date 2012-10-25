@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The ipydb plugin 
+The ipydb plugin. 
 
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
@@ -14,8 +14,8 @@ import fnmatch
 import os
 import sys
 import sqlalchemy as sa
-from IPython.core.plugin import Plugin
 from sqlalchemy.sql.compiler import RESERVED_WORDS
+from IPython.core.plugin import Plugin
 from termsize import termsize
 from magic import SqlMagics
 from metadata import CompletionDataAccessor
@@ -31,21 +31,27 @@ def getconfigs():
         configs[section] = conf
     return configs
 
+
+def sublists(l, n):
+    return (l[i:i + n] for i in range(0, len(l), n))
+
+
+def isublists(l, n):
+    return itertools.izip_longest(*[iter(l)] * n)
+
+
 def ipydb_completer(self, text=None):
-    """gets bound to IPython.core.completer.IPCompleter and called on tab-tab."""
+    """This fn is bound to IPython.core.completer.IPCompleter and called on tab-tab."""
     sqlplugin = self.shell.plugin_manager.get_plugin(PLUGIN_NAME)
     if sqlplugin:
         return sqlplugin.complete(self, text, self.line_buffer)
     else:
         return []
 
-def sublists(l, n):
-    return (l[i:i + n] for i in range(0, len(l), n))
-
-def isublists(l, n):
-    return itertools.izip_longest(*[iter(l)] * n)
 
 class SqlPlugin(Plugin):
+    """The ipydb plugin - hooks into the IPython Plugin API."""
+
     max_fieldsize = 100 # configurable?
     completion_data = CompletionDataAccessor()
     sqlformats = "table csv".split()
@@ -57,18 +63,11 @@ class SqlPlugin(Plugin):
         super(SqlPlugin, self).__init__(shell=shell, config=config)
         self.auto_magics = SqlMagics(self, shell)
         shell.register_magics(self.auto_magics)
-        self.fieldnames = set()
-        self.tablenames = set()
-        self.dottedfieldnames = set()
         self.sqlformat = 'table' # 'table' | 'csv'
-        self.sqlkeywords = set(RESERVED_WORDS)
         self.shell.set_custom_completer(ipydb_completer)
-        self.reflecting = False
-        self.thread = None
         self.connected = False
         self.engine = None
         self.nickname = None
-        self._metadata = None
         self.autocommit = True
         self.trans_ctx = None
 
@@ -76,8 +75,8 @@ class SqlPlugin(Plugin):
         if self.shell.debug:
             print "DEBUG:%s" % ' '.join(map(str, args))
 
-    def get_db_prompt1(self, *args, **kwargs):
-        """return a string indicating current host/db for use by ipython.prompt_manager"""
+    def get_db_ps1(self, *args, **kwargs):
+        """Return a string indicating current host/db for use by ipython.prompt_manager."""
         if not self.connected:
             return ''
         host = self.engine.url.host
@@ -90,23 +89,22 @@ class SqlPlugin(Plugin):
             url = self.nickname
         return " " + url
 
-    def get_transaction_prompt1(self, *args, **kw):
-        """return a string indicating the transaction state for use in PS1"""
+    def get_transaction_ps1(self, *args, **kw):
+        """Return a string indicating the transaction state for use in PS1."""
         if not self.connected:
             return ''
-        # really want this: ⚡ 
-        #but looks like IPython is expecting ascii for the PS1!? 
+        # I want this: ⚡ 
+        # but looks like IPython is expecting ascii for the PS1!? 
         return ' *' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
 
-    def get_reflecting_prompt1(self, *args, **kw):
-        """return a string indicating if the background metadata reflector is running"""
+    def get_reflecting_ps1(self, *args, **kw):
+        """Return a string indicating if the background metadata reflector is running."""
         if not self.connected:
             return ''
         return ' !' if self.completion_data.reflecting(self.engine) else ''
         
     def safe_url(self, url_string):
-        """return url_string with password removed or 
-        None if url_string is not parseable"""
+        """Return url_string with password removed or None if url_string is not parseable."""
         url = None
         try:
             url = sa.engine.url.make_url(str(url_string))
@@ -146,7 +144,7 @@ class SqlPlugin(Plugin):
     metadata = property(**metadata())
 
     def connect_url(self, url, connect_args={}):
-        """Connect to a datasbase using an SqlAlchemy URL"""
+        """Connect to a datasbase using an SqlAlchemy URL."""
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
@@ -175,8 +173,8 @@ class SqlPlugin(Plugin):
         if self.connected:
             self.completion_data.get_metadata(self.engine)
 
-
     def make_connection_url(self, config):
+        """Makes an SqlAlchemy connection URL based upon values in `config` dict."""
         cfg = defaultdict(str)
         cfg.update(config)
         return '{type}://{username}:{password}@{host}/{database}'.format(
@@ -184,6 +182,7 @@ class SqlPlugin(Plugin):
                 host=cfg['host'], database=cfg['database'])
 
     def execute(self, query):
+        """Execute query against current db connection, return result set."""
         result = None
         if not self.connected:
             print self.not_connected_message
@@ -195,6 +194,7 @@ class SqlPlugin(Plugin):
         return result
 
     def begin(self):
+        """Start a new transaction against the current db connection."""
         if not self.connected:
             print self.not_connected_message
             return
@@ -204,6 +204,7 @@ class SqlPlugin(Plugin):
             print "You are already in a transaction block and nesting is not supported"
 
     def commit(self):
+        """Commit current transaction if there was one."""
         if not self.connected:
             print self.not_connected_message
             return
@@ -215,6 +216,7 @@ class SqlPlugin(Plugin):
             print "No active transaction"
 
     def rollback(self):
+        """Rollback current transaction if there was one."""
         if not self.connected:
             print self.not_connected_message
             return
@@ -225,6 +227,7 @@ class SqlPlugin(Plugin):
             print "No active transaction"
 
     def show_tables(self, *globs):
+        """Print a list of tablenames matching input glob."""
         if not self.connected:
             print self.not_connected_message
             return
@@ -238,6 +241,7 @@ class SqlPlugin(Plugin):
         print '\n'.join(sorted(matches))
 
     def show_fields(self, *globs):
+        """Print a list of fields matching the input glob tableglob[.fieldglob]."""
         if not self.connected:
             print self.not_connected_message
             return
@@ -263,6 +267,9 @@ class SqlPlugin(Plugin):
         print
 
     def what_references(self, arg):
+        """Show fields referencing the input table/field arg.
+
+        The input arg is either a table name or a table.field name"""
         if not self.connected:
             print self.not_connected_message
             return
@@ -303,8 +310,8 @@ class SqlPlugin(Plugin):
         for ref in sorted(refs, key=lambda x: x[0]):
             print fmt % ref
 
-
     def render_result(self, result):
+        """Render a result set through less."""
         try:
             out = os.popen('less -FXRiS','w') ## XXX: use ipython's pager abstraction
             if self.sqlformat == 'csv':
@@ -320,6 +327,12 @@ class SqlPlugin(Plugin):
             out.close()
 
     def format_result_pretty(self, result, out=sys.stdout):
+        """Render an SQL result set as an ascii-table.
+
+        Renders an SQL result set to `out`, some file-like object. 
+        Assumes that we can determine the current terminal height and 
+        width via the termsize module.
+        """
         cols, lines = termsize()
         headings = result.keys()
         for screenrows in isublists(result, lines - 4):
@@ -350,12 +363,13 @@ class SqlPlugin(Plugin):
                 out.write('|\n')
 
     def format_result_csv(self, result, out=sys.stdout):
+        """Render an sql result set in CSV format."""
         writer = csv.writer(out)
         writer.writerow(result.keys())
         writer.writerows(result)
 
     def interested_in(self, completer, text, line_buffer=None):
-        """return True if ipydb should try to do completions on the current line_buffer
+        """Return True if ipydb should try to do completions on the current line_buffer
         otherwise return False. 
 
         :completer is IPython.core.completer.IPCompleter
@@ -393,10 +407,7 @@ class SqlPlugin(Plugin):
 
     def complete_sql(self, completer, text, line_buffer=None, first_token=None):
         """:completer is IPython.core.completer.IPCompleter
-        `text` is the current token of text being completed """
-        # todo: check state: is connected, has metdata etc. 
-        # text_until_cursor = completer.text_until_cursor
-        # if typing an as-yet undefined alias, then search all fieldnames
+        :text is the current token of text being completed """
         if not self.connected:
             self.debug('bailing - not connected')
             return []
@@ -424,7 +435,7 @@ class SqlPlugin(Plugin):
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
                 return matches
-        self.match_lists([tables, fields, self.sqlkeywords], 
+        self.match_lists([tables, fields, RESERVED_WORDS], 
                         text, matches_append)
         return matches
 
