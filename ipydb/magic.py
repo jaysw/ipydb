@@ -8,6 +8,7 @@ IPython magic commands registered by ipydb
 """
 
 from IPython.core.magic import Magics, magics_class, line_magic, line_cell_magic
+from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
 
 @magics_class
 class SqlMagics(Magics):
@@ -38,11 +39,14 @@ class SqlMagics(Magics):
         """Rollback active transaction, if one exists"""
         self.ipydb.rollback()
     
+
+    @magic_arguments()
+    @argument('-r', '--return', dest='ret', action='store_true', help='Return a resultset instead of printing the results')
+    @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
-    def sql(self, param='', cell=None):
+    def sql(self, args='', cell=None):
         """Run an sql statement against the current ipydb connection
 
-        Usage: %sql SQL_STATEMENT
         Example:
 
             %select id, first_name, last_name from person where first_name like 'J%'
@@ -58,9 +62,13 @@ class SqlMagics(Magics):
                     id < 10
 
         """
+        args = parse_argstring(self.sql, args)
+        sql = ' '.join(args.sql_statement)
         if cell is not None:
-            param += '\n' + cell  
-        result = self.ipydb.execute(param)
+            sql += '\n' + cell
+        result = self.ipydb.execute(sql)
+        if args.ret:
+            return result
         if result and result.returns_rows:
             self.ipydb.render_result(result)
 
