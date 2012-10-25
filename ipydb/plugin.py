@@ -12,6 +12,7 @@ import csv
 import itertools
 import fnmatch
 import os
+import re
 import sys
 import sqlalchemy as sa
 from sqlalchemy.sql.compiler import RESERVED_WORDS
@@ -374,12 +375,17 @@ class SqlPlugin(Plugin):
 
         :completer is IPython.core.completer.IPCompleter
         `text` is the current token of text being completed """
+        completion_magics = "what_references show_fields connect "\
+                           "sql select insert update delete sqlformat".split()
         if text and not line_buffer:
             return True # this is unfortunate...
         else:
             first_token = line_buffer.split()[0].lstrip('%')
-            return first_token in "what_references show_fields connect "\
-                                  "sql select insert update delete sqlformat".split()
+            if first_token in completion_magics:
+                return True
+            magic_assignment_re = r'^\s*\S+\s*=\s*%({magics})'.format(magics='|'.join(completion_magics))
+            return re.match(magic_assignment_re, line_buffer) is not None
+            
 
     def complete(self, completer, text, line_buffer=None):
         matches = []
