@@ -19,39 +19,40 @@ class SqlMagics(Magics):
 
     @line_magic
     def ipydb_help(self, *args):
-        """Show this help message"""
+        """Show this help message."""
         from ipydb import ipydb_help # XXX: recursive import problem...
         ipydb_help()
 
     @line_magic
     def begin(self, arg):
-        """Start a transaction"""
+        """Start a transaction."""
         self.ipydb.begin()
 
     @line_magic
     def commit(self, arg):
-        """Commit active transaction, if one exists"""
+        """Commit active transaction, if one exists."""
         self.ipydb.commit()
 
 
     @line_magic
     def rollback(self, arg):
-        """Rollback active transaction, if one exists"""
+        """Rollback active transaction, if one exists."""
         self.ipydb.rollback()
     
 
     @magic_arguments()
-    @argument('-r', '--return', dest='ret', action='store_true', help='Return a resultset instead of printing the results')
+    @argument('-r', '--return', dest='ret', action='store_true', 
+              help='Return a resultset instead of printing the results')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
-        """Run an sql statement against the current ipydb connection
+        """Run an sql statement against the current ipydb connection.
 
-        Example:
+        Examples:
 
-            %select id, first_name, last_name from person where first_name like 'J%'
+            %sql select id, first_name, last_name from person where first_name like 'J%'
 
-        Also works as a multi-line ipython command. For example:
+        Also works as a multi-line ipython command.
 
             %%sql
                 select
@@ -60,6 +61,12 @@ class SqlMagics(Magics):
                     my_table
                 where
                     id < 10
+
+        And you can ask for a result set back instead of printing the query results:
+
+            results = %sql -r select first_name from employees
+            for row in results:
+                do_things_with(row.first_name)
 
         """
         args = parse_argstring(self.sql, args)
@@ -74,7 +81,7 @@ class SqlMagics(Magics):
 
     @line_cell_magic
     def select(self, param='', cell=None):
-        """Run a select statement against ipydb's current connection
+        """Run a select statement against the current connection.
 
         Example:
 
@@ -99,7 +106,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def show_tables(self, param=''):
-        """Show a list of tables for the current db connection 
+        """Show a list of tables for the current db connection. 
 
         Usage: %show_tables [GLOB1 GLOB2...]
 
@@ -115,7 +122,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def show_fields(self, param=''):
-        """Show a list of fields and data types for the given table
+        """Show a list of fields and data types for the given table.
 
         Usage: %show_fields TABLE_GLOB[.FIELD_GLOB] [GLOB2...]
 
@@ -132,7 +139,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def what_references(self, param=""):
-        """Shows a list of all foreign keys that reference the given field or table
+        """Shows a list of all foreign keys that reference the given field or table.
 
         Usage: %what_references TABLE_NAME[.FIELD_NAME]
 
@@ -150,7 +157,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def sqlformat(self, param=None):
-        """Usage: %sqlformat <table|csv>"""
+        """Change the output format."""
         if not param or param not in ('csv', 'table'):
             print self.sqlformat.__doc__
         else:
@@ -159,7 +166,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def connect(self, param):
-        """Connect to a database using ipydb's configuration file ~/.db-connections
+        """Connect to a database using ipydb's configuration file ~/.db-connections.
 
         Usage: %connect NICKNAME
 
@@ -189,7 +196,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def connect_url(self, param):
-        """Connect to a database using an SqlAlchemy style connection URL
+        """Connect to a database using an SqlAlchemy style connection URL.
 
         Usage: %connect_url drivername://username:password@host/database
         Examples: 
@@ -201,5 +208,9 @@ class SqlMagics(Magics):
 
     @line_magic
     def flush_metadata(self, arg):
-        """Flush all schema caches and re-read for the current connection (if one exists)"""
+        """Flush all ipydb's schema caches.
+
+        Delete ipydb's in-memory cache of reflected schema information. 
+        Delete and re-create ipydb's sqlite information store. 
+        """
         self.ipydb.flush_metadata()
