@@ -24,6 +24,7 @@ CACHE_MAX_AGE = 60 * 5 # invalidate connection metadata if it is older than CACH
 
 class CompletionDataAccessor(object):
     '''reads and writes db-completion data from/to an sqlite db'''
+    
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
 
     def __init__(self):

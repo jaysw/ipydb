@@ -24,6 +24,7 @@ from ipydb import CONFIG_FILE, PLUGIN_NAME
 import urlparse
 
 def getconfigs():
+    """Return a dictionary of saved database connection configurations."""
     cp = ConfigParser()
     cp.read(CONFIG_FILE)
     configs = {}
@@ -43,7 +44,15 @@ def isublists(l, n):
 
 
 def ipydb_completer(self, text=None):
-    """This fn is bound to IPython.core.completer.IPCompleter and called on tab-tab."""
+    """Returns a list of suggested completions for text.
+
+    Note: This is bound to IPython.core.completer.IPCompleter 
+          and called on tab-presses by ipython.
+    Args:
+        text: String of text to complete.
+    Returns:
+        A list of candidate strings which complete the input text
+	"""
     sqlplugin = self.shell.plugin_manager.get_plugin(PLUGIN_NAME)
     if sqlplugin:
         return sqlplugin.complete(self, text, self.line_buffer)
@@ -52,7 +61,7 @@ def ipydb_completer(self, text=None):
 
 
 class SqlPlugin(Plugin):
-    """The ipydb plugin - hooks into the IPython Plugin API."""
+    """The ipydb plugin - manipulate databases from ipython."""
 
     max_fieldsize = 100 # configurable?
     completion_data = CompletionDataAccessor()
@@ -62,6 +71,12 @@ class SqlPlugin(Plugin):
             "%connect_url dbdriver://user:pass@host/dbname\n"
 
     def __init__(self, shell=None, config=None):
+        """Constructor.
+
+        Args:
+            shell: An instance of IPython.core.InteractiveShell.
+            config: IPython's config object.
+        """
         super(SqlPlugin, self).__init__(shell=shell, config=config)
         self.auto_magics = SqlMagics(self, shell)
         shell.register_magics(self.auto_magics)
@@ -74,19 +89,14 @@ class SqlPlugin(Plugin):
         self.autocommit = True
         self.trans_ctx = None
 
-
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
         if not self.connected:
             print self.not_connected_message
         return self.engine
 
-    def debug(self, *args):
-        if self.shell.debug:
-            print "DEBUG:%s" % ' '.join(map(str, args))
-
     def get_db_ps1(self, *args, **kwargs):
-        """Return a string indicating current host/db for use by ipython.prompt_manager."""
+        """Return a string indicating current host/db for use in ipython's prompt PS1."""
         if not self.connected:
             return ''
         host = self.engine.url.host
@@ -100,7 +110,7 @@ class SqlPlugin(Plugin):
         return " " + url
 
     def get_transaction_ps1(self, *args, **kw):
-        """Return a string indicating the transaction state for use in PS1."""
+        """Return a string indicating the transaction state for use in ipython's prompt PS1."""
         if not self.connected:
             return ''
         # I want this: ⚡ 
@@ -108,7 +118,7 @@ class SqlPlugin(Plugin):
         return ' *' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
 
     def get_reflecting_ps1(self, *args, **kw):
-        """Return a string indicating if the background metadata reflector is running."""
+        """Return a string indictor if background schema reflection is running."""
         if not self.connected:
             return ''
         return ' !' if self.completion_data.reflecting(self.engine) else ''
@@ -124,8 +134,10 @@ class SqlPlugin(Plugin):
         return url
 
     def connect(self, configname=None):
-        """Connect to a database based upon its `nickname` 
-        in the configuration file: ~/.db-connections"""
+        """Connect to a database based upon its `nickname`.
+        
+        See ipydb.magic.connect() for details. 
+        """
         configs = getconfigs()
         def available():
             print self.connect.__doc__
@@ -142,19 +154,26 @@ class SqlPlugin(Plugin):
             self.nickname = configname
         return self.connected
 
-    def metadata():
-        def fget(self):
+    @property
+    def metadata(self):
+        """Get sqlalchemy.MetaData instance for current connection."""
             if not self.connected:
                 return None
             meta = getattr(self, '_metadata', None)
             if meta is None or self._metadata.bind != self.engine:
                 self._metadata = sa.MetaData(bind=self.engine)
             return self._metadata
-        return locals()
-    metadata = property(**metadata())
 
     def connect_url(self, url, connect_args={}):
-        """Connect to a datasbase using an SqlAlchemy URL."""
+        """Connect to a database using an SqlAlchemy URL.
+
+        Args:
+            url: An SqlAlchemy-style DB connection URL.
+            connect_args: extra argument to be passed to the underlying
+                          DB-API driver.
+        Returns:
+            True if connection was successful.
+        """
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
@@ -172,29 +191,42 @@ class SqlPlugin(Plugin):
             import MySQLdb.cursors
             # use server-side cursors by default (does this work with myISAM?)
             connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
-
         self.engine = sa.engine.create_engine(url, connect_args=connect_args)
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
+        self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return True
 
     def flush_metadata(self):
+        """Delete cached schema information"""
         print "Deleting metadata..."
         self.completion_data.flush()
         if self.connected:
             self.completion_data.get_metadata(self.engine)
 
     def make_connection_url(self, config):
-        """Makes an SqlAlchemy connection URL based upon values in `config` dict."""
+        """Returns an SqlAlchemy connection URL based upon values in `config` dict.
+
+        Args:
+            config: dict-like object with keys: type, username, password,
+                    host, and database.
+        Returns:
+            str URL which SqlAlchemy can use to connect to a database.
+        """
         cfg = defaultdict(str)
         cfg.update(config)
         return sa.engine.url.URL(drivername=cfg['type'], username=cfg['username'], password=cfg['password'], 
                 host=cfg['host'], database=cfg['database'], query=dict(urlparse.parse_qsl(cfg['query'])))
 
     def execute(self, query):
-        """Execute query against current db connection, return result set."""
+        """Execute query against current db connection, return result set.
+
+        Args:
+            query: string query to execute
+        Returns:
+            Sqlalchemy's DB-API cursor-like object. 
+        """
         result = None
         if not self.connected:
             print self.not_connected_message
@@ -239,7 +271,15 @@ class SqlPlugin(Plugin):
             print "No active transaction"
 
     def show_tables(self, *globs):
-        """Print a list of tablenames matching input glob."""
+        """Print a list of tablenames matching input glob/s.
+
+        All table names are printed if no glob is given, otherwise
+        just those table names matching any of the *globs are printed. 
+
+        Args:
+            *glob: zero or more globs to match against table names.
+
+        """
         if not self.connected:
             print self.not_connected_message
             return
@@ -253,7 +293,13 @@ class SqlPlugin(Plugin):
         print '\n'.join(sorted(matches))
 
     def show_fields(self, *globs):
-        """Print a list of fields matching the input glob tableglob[.fieldglob]."""
+        """Print a list of fields matching the input glob tableglob[.fieldglob].
+
+        See ipydb.magic.show_fields for examples. 
+
+        Args:
+            *globs: list of [tableglob].[fieldglob] strings
+        """
         if not self.connected:
             print self.not_connected_message
             return
@@ -281,7 +327,13 @@ class SqlPlugin(Plugin):
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.
 
-        The input arg is either a table name or a table.field name"""
+        If arg is a tablename, then print fields which reference
+        any field in tablename. If arg is a field (specified by 
+        tablename.fieldname), then print only fields which reference 
+        the specified table.field. 
+
+        Args:
+            arg: Either a table name or a [table.field] name"""
         if not self.connected:
             print self.not_connected_message
             return
@@ -289,7 +341,6 @@ class SqlPlugin(Plugin):
         tablename = bits[0]
         fieldname = bits[1] if len(bits) > 1 else ''
         field = table = None
-        #meta = self.metadata
         meta = self.completion_data.sa_metadata
         meta.reflect() # XXX: can be very slow! TODO: don't do this
         for tname, tbl in meta.tables.iteritems():
@@ -322,14 +373,20 @@ class SqlPlugin(Plugin):
         for ref in sorted(refs, key=lambda x: x[0]):
             print fmt % ref
 
-    def render_result(self, result):
-        """Render a result set through less."""
+    def render_result(self, cursor):
+        """Render a result set and pipe through less.
+
+        Args:
+            cursor: iterable of tuples, with one special method: 
+                    cursor.keys() which returns a list of string columns
+                    headings for the tuples.
+        """
         try:
             out = os.popen('less -FXRiS','w') ## XXX: use ipython's pager abstraction
             if self.sqlformat == 'csv':
-                self.format_result_csv(result, out=out)
+                self.format_result_csv(cursor, out=out)
             else:
-                self.format_result_pretty(result, out=out)
+                self.format_result_pretty(cursor, out=out)
         except IOError, msg:
             if msg.args == (32, 'Broken pipe'): # user quit
                 pass
@@ -338,16 +395,21 @@ class SqlPlugin(Plugin):
         finally:
             out.close()
 
-    def format_result_pretty(self, result, out=sys.stdout):
+    def format_result_pretty(self, cursor, out=sys.stdout):
         """Render an SQL result set as an ascii-table.
 
         Renders an SQL result set to `out`, some file-like object. 
         Assumes that we can determine the current terminal height and 
         width via the termsize module.
+
+        Args:
+            cursor: cursor-like object. See: render_result()
+            out: file-like object.
+
         """
         cols, lines = termsize()
-        headings = result.keys()
-        for screenrows in isublists(result, lines - 4):
+        headings = cursor.keys()
+        for screenrows in isublists(cursor, lines - 4):
             sizes = map(lambda x: len(unicode(x)), headings)
             for row in screenrows:
                 if row is None: break
@@ -374,18 +436,28 @@ class SqlPlugin(Plugin):
                     out.write((fmt % value).encode('utf8'))
                 out.write('|\n')
 
-    def format_result_csv(self, result, out=sys.stdout):
-        """Render an sql result set in CSV format."""
+    def format_result_csv(self, cursor, out=sys.stdout):
+        """Render an sql result set in CSV format.
+
+        Args:
+            result: cursor-like object: see render_result()
+            out: file-like object to write results to.
+        """
         writer = csv.writer(out)
-        writer.writerow(result.keys())
-        writer.writerows(result)
+        writer.writerow(cursor.keys())
+        writer.writerows(cursor)
 
     def interested_in(self, completer, text, line_buffer=None):
         """Return True if ipydb should try to do completions on the current line_buffer
         otherwise return False. 
 
-        :completer is IPython.core.completer.IPCompleter
-        `text` is the current token of text being completed """
+        Args:
+            completer: IPython.core.completer.IPCompleter instance.
+            text: Current token (str) of text being completed. 
+            line_buffer: str text for the whole line. 
+        Returns:
+            True if ipydb should try to complete text, False otherwise. 
+        """
         completion_magics = "what_references show_fields connect "\
                            "sql select insert update delete sqlformat".split()
         if text and not line_buffer:
@@ -399,11 +471,18 @@ class SqlPlugin(Plugin):
             
 
     def complete(self, completer, text, line_buffer=None):
+        """Return a list of "tab-completion" strings for text.
+
+        Args:
+            completer: IPython.core.completer.IPCompleter instance.
+            text: String of text to complete.
+            line_buffer: Full line of text (str) that is being completed. 
+        Returns:
+            list of strings which can complete the input text.
+        """
         matches = []
         matches_append = matches.append
-        self.debug('Completion requested on line:', line_buffer, 'token', text)
         if not self.interested_in(completer, text, line_buffer):
-            self.debug('was not interested in [', line_buffer, ']')
             return []
         first_token = None
         if line_buffer:
@@ -417,16 +496,32 @@ class SqlPlugin(Plugin):
         return self.complete_sql(completer, text, line_buffer, first_token)
 
     def match_lists(self, lists, text, appendfunc):
+        """Helper to substring-match text in a list-of-lists.
+
+        Args:
+            lists: a list of lists of strings.
+            text: text to substring match against lists.
+            appendfunc: callable, called with each string from
+                        and of the input lists that can complete
+                        text - appendfunc(match)
+        """
         n = len(text)
         for word in itertools.chain(*lists):
             if word[:n] == text:
                 appendfunc(word)
 
     def complete_sql(self, completer, text, line_buffer=None, first_token=None):
-        """:completer is IPython.core.completer.IPCompleter
-        :text is the current token of text being completed """
+        """Return completion suggestions based up database schema terms.
+
+        See complete() for keyword arguments. 
+
+        Args:
+            first_token: The first non-whitespace token from the front
+                         of line_buffer. 
+        Returns:
+            A List of strings which can complete input text. 
+        """
         if not self.connected:
-            self.debug('bailing - not connected')
             return []
         matches = []
         matches_append = matches.append
