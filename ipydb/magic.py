@@ -24,6 +24,20 @@ class SqlMagics(Magics):
         ipydb_help()
 
     @line_magic
+    def set_reflection(self, arg):
+        """Toggle schema reflection."""
+        if self.ipydb.do_reflection:
+            self.ipydb.do_reflection = False
+        else:
+            self.ipydb.do_reflection = True
+        print 'Schema reflection: %s' % ('on' if self.ipydb.do_reflection else 'off')
+
+    @line_magic
+    def engine(self, arg):
+        """Return sqlalchemy engine reference to the current ipydb connection."""
+        return self.ipydb.get_engine()
+
+    @line_magic
     def begin(self, arg):
         """Start a transaction"""
         self.ipydb.begin()

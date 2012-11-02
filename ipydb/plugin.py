@@ -21,6 +21,7 @@ from termsize import termsize
 from magic import SqlMagics
 from metadata import CompletionDataAccessor
 from ipydb import CONFIG_FILE, PLUGIN_NAME
+import urlparse
 
 def getconfigs():
     cp = ConfigParser()
@@ -66,11 +67,19 @@ class SqlPlugin(Plugin):
         shell.register_magics(self.auto_magics)
         self.sqlformat = 'table' # 'table' | 'csv'
         self.shell.set_custom_completer(ipydb_completer)
+        self.do_reflection = True
         self.connected = False
         self.engine = None
         self.nickname = None
         self.autocommit = True
         self.trans_ctx = None
+
+
+    def get_engine(self):
+        """Returns current sqlalchemy engine reference, if there was one."""
+        if not self.connected:
+            print self.not_connected_message
+        return self.engine
 
     def debug(self, *args):
         if self.shell.debug:
@@ -153,6 +162,7 @@ class SqlPlugin(Plugin):
             # not sure why we need this horrible hack - 
             # I think there's some weirdness 
             # with cx_oracle/oracle versions I'm using. 
+            os.environ["NLS_LANG"] = ".AL32UTF8" 
             import cx_Oracle
             if not getattr(cx_Oracle, '_cxmakedsn', None):
                 setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
@@ -162,10 +172,12 @@ class SqlPlugin(Plugin):
             import MySQLdb.cursors
             # use server-side cursors by default (does this work with myISAM?)
             connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
+
         self.engine = sa.engine.create_engine(url, connect_args=connect_args)
         self.connected = True
         self.nickname = None
-        self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
+        if self.do_reflection:
+            self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return True
 
     def flush_metadata(self):
@@ -178,9 +190,8 @@ class SqlPlugin(Plugin):
         """Makes an SqlAlchemy connection URL based upon values in `config` dict."""
         cfg = defaultdict(str)
         cfg.update(config)
-        return '{type}://{username}:{password}@{host}/{database}'.format(
-                type=cfg['type'], username=cfg['username'], password=cfg['password'], 
-                host=cfg['host'], database=cfg['database'])
+        return sa.engine.url.URL(drivername=cfg['type'], username=cfg['username'], password=cfg['password'], 
+                host=cfg['host'], database=cfg['database'], query=dict(urlparse.parse_qsl(cfg['query'])))
 
     def execute(self, query):
         """Execute query against current db connection, return result set."""
@@ -307,7 +318,7 @@ class SqlPlugin(Plugin):
                                 fk.target_fullname))
         if refs:
             maxleft = max(map(lambda x: len(x[0]), refs)) + 2
-            fmt = "%%-%ss references %%s" % (maxleft,)
+            fmt = u"%%-%ss references %%s" % (maxleft,)
         for ref in sorted(refs, key=lambda x: x[0]):
             print fmt % ref
 
@@ -337,16 +348,16 @@ class SqlPlugin(Plugin):
         cols, lines = termsize()
         headings = result.keys()
         for screenrows in isublists(result, lines - 4):
-            sizes = map(lambda x: len(str(x)), headings)
+            sizes = map(lambda x: len(unicode(x)), headings)
             for row in screenrows:
                 if row is None: break
-                sizes = map(max, zip(map(lambda x: min(self.max_fieldsize, len(str(x))), row), sizes))
+                sizes = map(max, zip(map(lambda x: min(self.max_fieldsize, len(unicode(x))), row), sizes))
             for size in sizes:
                 out.write('+' + '-' * (size + 2))
             out.write('+\n')
             for idx, size in enumerate(sizes):
-                fmt = '| %%-%is ' % size
-                out.write(fmt % headings[idx])
+                fmt = u'| %%-%is ' % size
+                out.write((fmt % headings[idx]).encode('utf8'))
             out.write('|\n')
             for size in sizes:
                 out.write('+' + '-' * (size + 2))
@@ -355,12 +366,12 @@ class SqlPlugin(Plugin):
                 if rw is None:
                     break # from isublists impl
                 for idx, size in enumerate(sizes):
-                    fmt = '| %%-%is ' % size
-                    value = str(rw[idx])
+                    fmt = u'| %%-%is ' % size
+                    value = unicode(rw[idx])
                     if len(value) > self.max_fieldsize:
-                        value = value[:self.max_fieldsize - 5] + '[...]'
-                    value = value.replace('\n', r'^').replace('\r', r'^').replace('\t', ' ')
-                    out.write(fmt % value)
+                        value = value[:self.max_fieldsize - 5] + u'[...]'
+                    value = value.replace(u'\n', u'^').replace(u'\r', u'^').replace(u'\t', u' ')
+                    out.write((fmt % value).encode('utf8'))
                 out.write('|\n')
 
     def format_result_csv(self, result, out=sys.stdout):
