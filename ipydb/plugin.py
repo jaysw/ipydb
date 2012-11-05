@@ -157,12 +157,12 @@ class SqlPlugin(Plugin):
     @property
     def metadata(self):
         """Get sqlalchemy.MetaData instance for current connection."""
-            if not self.connected:
-                return None
-            meta = getattr(self, '_metadata', None)
-            if meta is None or self._metadata.bind != self.engine:
-                self._metadata = sa.MetaData(bind=self.engine)
-            return self._metadata
+        if not self.connected:
+            return None
+        meta = getattr(self, '_metadata', None)
+        if meta is None or self._metadata.bind != self.engine:
+            self._metadata = sa.MetaData(bind=self.engine)
+        return self._metadata
 
     def connect_url(self, url, connect_args={}):
         """Connect to a database using an SqlAlchemy URL.
