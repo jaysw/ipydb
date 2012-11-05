@@ -195,7 +195,7 @@ class SqlPlugin(Plugin):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-        self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
+            self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
         return True
 
     def flush_metadata(self):
