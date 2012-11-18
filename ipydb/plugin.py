@@ -64,6 +64,19 @@ def ipydb_completer(self, text=None):
         return []
 
 
+class FakedResult(object):
+
+    def __init__(self, items, headings):
+        self.items = items
+        self.headings = headings
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def keys(self):
+        return self.headings
+
+
 class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 
@@ -319,7 +332,8 @@ class SqlPlugin(Plugin):
         else:
             for glob in globs:
                 matches.update(fnmatch.filter(tablenames, glob))
-        print '\n'.join(sorted(matches))
+        self.render_result(FakedResult(((r,) for r in matches), ['Table']))
+        # print '\n'.join(sorted(matches))
 
     def show_fields(self, *globs):
         """
@@ -343,18 +357,27 @@ class SqlPlugin(Plugin):
                 glob += '.*'
             matches.update(fnmatch.filter(dottedfields, glob))
         tprev = None
-        for match in sorted(matches):
-            tablename, fieldname = match.split('.', 1)
-            if tablename != tprev:
-                if tprev is not None:
-                    print
-                print tablename
-                print '-' * len(tablename)
-            print "    %-35s%s" % (
-                fieldname,
-                self.completion_data.types(self.engine).get(match, '[?]'))
-            tprev = tablename
-        print
+        try:
+            out = self.get_pager()
+            for match in sorted(matches):
+                tablename, fieldname = match.split('.', 1)
+                if tablename != tprev:
+                    if tprev is not None:
+                        out.write("\n")
+                    out.write(tablename + '\n')
+                    out.write('-' * len(tablename) + '\n')
+                out.write("    %-35s%s\n" % (
+                    fieldname,
+                    self.completion_data.types(self.engine).get(match, '[?]')))
+                tprev = tablename
+            out.write('\n')
+        except IOError, msg:
+            if msg.args == (32, 'Broken pipe'):  # user quit
+                pass
+            else:
+                raise
+        finally:
+            out.close()
 
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.
@@ -405,6 +428,9 @@ class SqlPlugin(Plugin):
         for ref in sorted(refs, key=lambda x: x[0]):
             print fmt % ref
 
+    def get_pager(self):
+        return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
+
     def render_result(self, cursor):
         """Render a result set and pipe through less.
 
@@ -414,7 +440,7 @@ class SqlPlugin(Plugin):
                     headings for the tuples.
         """
         try:
-            out = os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
+            out = self.get_pager()
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
