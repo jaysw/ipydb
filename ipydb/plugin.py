@@ -29,11 +29,14 @@ def getconfigs():
     cp = ConfigParser()
     cp.read(CONFIG_FILE)
     configs = {}
+    default = None
     for section in cp.sections():
         conf = dict(cp.defaults())
         conf.update(dict(cp.items(section)))
+        if conf.get('default'):
+            default = section
         configs[section] = conf
-    return configs
+    return default, configs
 
 
 def sublists(l, n):
@@ -89,6 +92,9 @@ class SqlPlugin(Plugin):
         self.nickname = None
         self.autocommit = True
         self.trans_ctx = None
+        default, configs = getconfigs()
+        if default:
+            self.connect(default)
 
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
@@ -144,7 +150,7 @@ class SqlPlugin(Plugin):
 
         See ipydb.magic.connect() for details.
         """
-        configs = getconfigs()
+        default, configs = getconfigs()
 
         def available():
             print self.connect.__doc__
@@ -516,7 +522,8 @@ class SqlPlugin(Plugin):
         if line_buffer:
             first_token = line_buffer.split()[0].lstrip('%')
         if first_token == 'connect':
-            self.match_lists([getconfigs().keys()], text, matches_append)
+            keys = getconfigs()[1].keys()
+            self.match_lists([keys], text, matches_append)
             return matches
         if first_token == 'sqlformat':
             self.match_lists([self.sqlformats], text, matches_append)
