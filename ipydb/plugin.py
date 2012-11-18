@@ -202,6 +202,10 @@ class SqlPlugin(Plugin):
         Returns:
             True if connection was successful.
         """
+        if self.trans_ctx and self.trans_ctx.transaction.is_active:
+            print "You have an active transaction, either %commit or " \
+                "%rollback before connecting to a new database."
+            return
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
