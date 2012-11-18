@@ -441,7 +441,7 @@ class SqlPlugin(Plugin):
         """
         cols, lines = termsize()
         headings = cursor.keys()
-        heading_sizes = map(lambda x: len(unicode(x)), headings)
+        heading_sizes = map(lambda x: len(x), headings)
         for screenrows in isublists(cursor, lines - 4):
             sizes = heading_sizes[:]
             for row in screenrows:
@@ -456,8 +456,8 @@ class SqlPlugin(Plugin):
                 out.write('+' + '-' * (size + 2))
             out.write('+\n')
             for idx, size in enumerate(sizes):
-                fmt = u'| %%-%is ' % size
-                out.write((fmt % headings[idx]).encode('utf8'))
+                fmt = '| %%-%is ' % size
+                out.write((fmt % headings[idx]))
             out.write('|\n')
             for size in sizes:
                 out.write('+' + '-' * (size + 2))
@@ -466,13 +466,15 @@ class SqlPlugin(Plugin):
                 if rw is None:
                     break  # from isublists impl
                 for idx, size in enumerate(sizes):
-                    fmt = u'| %%-%is ' % size
-                    value = unicode(rw[idx])
+                    fmt = '| %%-%is ' % size
+                    value = rw[idx]
+                    if not isinstance(value, basestring):
+                        value = str(value)
                     if len(value) > self.max_fieldsize:
-                        value = value[:self.max_fieldsize - 5] + u'[...]'
-                    value = value.replace(u'\n', u'^')
-                    value = value.replace(u'\r', u'^').replace(u'\t', u' ')
-                    out.write((fmt % value).encode('utf8'))
+                        value = value[:self.max_fieldsize - 5] + '[...]'
+                    value = value.replace('\n', '^')
+                    value = value.replace('\r', '^').replace('\t', ' ')
+                    out.write((fmt % value))
                 out.write('|\n')
 
     def format_result_csv(self, cursor, out=sys.stdout):
