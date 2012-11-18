@@ -246,10 +246,13 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
         else:
+            conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
-                result = self.trans_ctx.conn.execute(query)
-            else:
-                result = self.engine.execute(query)
+                conn = self.trans_ctx.conn.execute
+            try:
+                result = conn.execute(query)
+            except Exception, e:
+                print e.message
         return result
 
     def begin(self):
