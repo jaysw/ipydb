@@ -252,6 +252,10 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
         else:
+            bits = query.split()
+            if len(bits) == 2 and bits[0].lower() == 'select' and \
+                    bits[1] in self.completion_data.tables(self.engine):
+                query = 'select * from %s' % bits[1]
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
                 conn = self.trans_ctx.conn.execute
