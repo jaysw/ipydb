@@ -7,8 +7,11 @@ IPython magic commands registered by ipydb
 :license: see LICENSE for more details.
 """
 
-from IPython.core.magic import Magics, magics_class, line_magic, line_cell_magic
-from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
+from IPython.core.magic import Magics, magics_class, \
+    line_magic, line_cell_magic
+from IPython.core.magic_arguments import magic_arguments, \
+    argument, parse_argstring
+
 
 @magics_class
 class SqlMagics(Magics):
@@ -20,7 +23,7 @@ class SqlMagics(Magics):
     @line_magic
     def ipydb_help(self, *args):
         """Show this help message."""
-        from ipydb import ipydb_help # XXX: recursive import problem...
+        from ipydb import ipydb_help  # XXX: recursive import problem...
         ipydb_help()
 
     @line_magic
@@ -30,11 +33,13 @@ class SqlMagics(Magics):
             self.ipydb.do_reflection = False
         else:
             self.ipydb.do_reflection = True
-        print 'Schema reflection: %s' % ('on' if self.ipydb.do_reflection else 'off')
+        print 'Schema reflection: %s' % (
+            'on' if self.ipydb.do_reflection else 'off')
 
     @line_magic
     def engine(self, arg):
-        """Return sqlalchemy engine reference to the current ipydb connection."""
+        """Return sqlalchemy engine reference to the current ipydb connection.
+        """
         return self.ipydb.get_engine()
 
     @line_magic
@@ -47,15 +52,13 @@ class SqlMagics(Magics):
         """Commit active transaction, if one exists."""
         self.ipydb.commit()
 
-
     @line_magic
     def rollback(self, arg):
         """Rollback active transaction, if one exists."""
         self.ipydb.rollback()
-    
 
     @magic_arguments()
-    @argument('-r', '--return', dest='ret', action='store_true', 
+    @argument('-r', '--return', dest='ret', action='store_true',
               help='Return a resultset instead of printing the results')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
@@ -64,7 +67,7 @@ class SqlMagics(Magics):
 
         Examples:
 
-            %sql select id, first_name, last_name from person where first_name like 'J%'
+            %sql select first_name from person where first_name like 'J%'
 
         Also works as a multi-line ipython command.
 
@@ -76,7 +79,7 @@ class SqlMagics(Magics):
                 where
                     id < 10
 
-        And you can ask for a result set back instead of printing the query results:
+        To get a result set back instead of printing the query results:
 
             results = %sql -r select first_name from employees
             for row in results:
@@ -107,9 +110,9 @@ class SqlMagics(Magics):
 
         Can be run as an ipython multi-line statement. For example:
             %%select first_name, last_name
-            from 
+            from
                 my_table
-            where 
+            where
                 foo = 'lur'
         """
         if cell is not None:
@@ -120,7 +123,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def show_tables(self, param=''):
-        """Show a list of tables for the current db connection. 
+        """Show a list of tables for the current db connection.
 
         Usage: %show_tables [GLOB1 GLOB2...]
 
@@ -153,7 +156,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def what_references(self, param=""):
-        """Shows a list of all foreign keys that reference the given field or table.
+        """Shows a list of all foreign keys that reference the given field.
 
         Usage: %what_references TABLE_NAME[.FIELD_NAME]
 
@@ -180,12 +183,14 @@ class SqlMagics(Magics):
 
     @line_magic
     def connect(self, param):
-        """Connect to a database using ipydb's configuration file ~/.db-connections.
+        """Connect to a database using a configuration 'nickname'.
 
         Usage: %connect NICKNAME
 
         For this to work, you need to create a file called
-        ~/.db-connections. This file is an "ini" file, parsable by python's ConfigParser. 
+        ~/.db-connections. This file is an "ini" file,
+        parsable by python's ConfigParser.
+
         Here's an example of what ~/.db-connections might look like:
 
             [mydb]
@@ -198,13 +203,15 @@ class SqlMagics(Magics):
             [myotherdb]
             type: sqlite
             database: /path/to/file.sqlite
-        
-        Each database connection defined in ~/.db-connections is then referenceable 
-        via its section heading, or NICKNAME. 
 
-        You will need to ensure that you have installed a python driver for your chosen database.
-        see: http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases for recommended
-        drivers.
+        Each database connection defined in ~/.db-connections is
+        then referenceable via its section heading, or NICKNAME.
+
+        Note: Before you can connect, you will need to install a python driver
+        for your chosen database. For a list of recommended drivers,
+        see the SQLAlchemy documentation:
+
+            http://bit.ly/J3TBJh
         """
         self.ipydb.connect(param)
 
@@ -213,18 +220,23 @@ class SqlMagics(Magics):
         """Connect to a database using an SqlAlchemy style connection URL.
 
         Usage: %connect_url drivername://username:password@host/database
-        Examples: 
+        Examples:
             %connect_url mysql://root@localhost/mydatabase
             %connect_url sqlite:///:memory:
-        You will need to ensure that you have installed a python driver for your chosen database.
-        see: http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases"""
+
+        Note: Before you can connect, you will need to install a python driver
+        for your chosen database. For a list of recommended drivers,
+        see the SQLAlchemy documentation:
+
+            http://bit.ly/J3TBJh
+        """
         self.ipydb.connect_url(param)
 
     @line_magic
     def flush_metadata(self, arg):
         """Flush all ipydb's schema caches.
 
-        Delete ipydb's in-memory cache of reflected schema information. 
-        Delete and re-create ipydb's sqlite information store. 
+        Delete ipydb's in-memory cache of reflected schema information.
+        Delete and re-create ipydb's sqlite information store.
         """
         self.ipydb.flush_metadata()

@@ -3,11 +3,12 @@ from setuptools import setup
 import ipydb
 
 requires = ['SQLAlchemy', 'ipython>=0.11', 'python-dateutil']
+description = "An IPython extension to help you write and run SQL statements"
 
 setup(
     name='ipydb',
     version=ipydb.__version__,
-    description="An IPython extension to help you write and run SQL statements",
+    description=description,
     author='Jay Sweeney',
     author_email='writetojay@gmail.com',
     url='http://github.com/jaysw/ipydb',

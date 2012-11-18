@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The ipydb plugin. 
+The ipydb plugin.
 
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
@@ -22,6 +22,7 @@ from magic import SqlMagics
 from metadata import CompletionDataAccessor
 from ipydb import CONFIG_FILE, PLUGIN_NAME
 import urlparse
+
 
 def getconfigs():
     """Return a dictionary of saved database connection configurations."""
@@ -46,13 +47,13 @@ def isublists(l, n):
 def ipydb_completer(self, text=None):
     """Returns a list of suggested completions for text.
 
-    Note: This is bound to IPython.core.completer.IPCompleter 
+    Note: This is bound to IPython.core.completer.IPCompleter
           and called on tab-presses by ipython.
     Args:
         text: String of text to complete.
     Returns:
         A list of candidate strings which complete the input text
-	"""
+    """
     sqlplugin = self.shell.plugin_manager.get_plugin(PLUGIN_NAME)
     if sqlplugin:
         return sqlplugin.complete(self, text, self.line_buffer)
@@ -63,12 +64,12 @@ def ipydb_completer(self, text=None):
 class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 
-    max_fieldsize = 100 # configurable?
+    max_fieldsize = 100  # configurable?
     completion_data = CompletionDataAccessor()
     sqlformats = "table csv".split()
-    not_connected_message = "ipydb is not connected to a database. "\
-            "Try:\n\t%connect CONFIGNAME\nor try:\n\t"\
-            "%connect_url dbdriver://user:pass@host/dbname\n"
+    not_connected_message = "ipydb is not connected to a database. " \
+        "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
+        "%connect_url dbdriver://user:pass@host/dbname\n"
 
     def __init__(self, shell=None, config=None):
         """Constructor.
@@ -80,7 +81,7 @@ class SqlPlugin(Plugin):
         super(SqlPlugin, self).__init__(shell=shell, config=config)
         self.auto_magics = SqlMagics(self, shell)
         shell.register_magics(self.auto_magics)
-        self.sqlformat = 'table' # 'table' | 'csv'
+        self.sqlformat = 'table'  # 'table' | 'csv'
         self.shell.set_custom_completer(ipydb_completer)
         self.do_reflection = True
         self.connected = False
@@ -96,13 +97,13 @@ class SqlPlugin(Plugin):
         return self.engine
 
     def get_db_ps1(self, *args, **kwargs):
-        """Return a string indicating current host/db for use in ipython's prompt PS1."""
+        """ Return current host/db for use in ipython's prompt PS1. """
         if not self.connected:
             return ''
         host = self.engine.url.host
         if '.' in host:
             host = host.split('.')[0]
-        host = host[:15] # don't like long hostnames
+        host = host[:15]  # don't like long hostnames
         db = self.engine.url.database[:15]
         url = "%s/%s" % (host, db)
         if self.nickname:
@@ -110,21 +111,26 @@ class SqlPlugin(Plugin):
         return " " + url
 
     def get_transaction_ps1(self, *args, **kw):
-        """Return a string indicating the transaction state for use in ipython's prompt PS1."""
+        """Return '*' if ipydb has an active transaction."""
         if not self.connected:
             return ''
-        # I want this: ⚡ 
-        # but looks like IPython is expecting ascii for the PS1!? 
-        return ' *' if self.trans_ctx and self.trans_ctx.transaction.is_active else ''
+        # I want this: ⚡
+        # but looks like IPython is expecting ascii for the PS1!?
+        if self.trans_ctx and self.trans_ctx.transaction.is_active:
+            return ' *'
+        else:
+            return ''
 
     def get_reflecting_ps1(self, *args, **kw):
-        """Return a string indictor if background schema reflection is running."""
+        """
+        Return a string indictor if background schema reflection is running.
+        """
         if not self.connected:
             return ''
         return ' !' if self.completion_data.reflecting(self.engine) else ''
-        
+
     def safe_url(self, url_string):
-        """Return url_string with password removed or None if url_string is not parseable."""
+        """Return url_string with password removed."""
         url = None
         try:
             url = sa.engine.url.make_url(str(url_string))
@@ -135,13 +141,15 @@ class SqlPlugin(Plugin):
 
     def connect(self, configname=None):
         """Connect to a database based upon its `nickname`.
-        
-        See ipydb.magic.connect() for details. 
+
+        See ipydb.magic.connect() for details.
         """
         configs = getconfigs()
+
         def available():
             print self.connect.__doc__
-            print "Available config names: %s" % (' '.join(sorted(configs.keys())))
+            print "Available config names: %s" % (
+                ' '.join(sorted(configs.keys())))
         if not configname:
             available()
         elif configname not in configs:
@@ -150,7 +158,8 @@ class SqlPlugin(Plugin):
         else:
             config = configs[configname]
             connect_args = {}
-            self.connect_url(self.make_connection_url(config), connect_args=connect_args)
+            self.connect_url(self.make_connection_url(config),
+                             connect_args=connect_args)
             self.nickname = configname
         return self.connected
 
@@ -178,24 +187,26 @@ class SqlPlugin(Plugin):
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
         if safe_url.drivername == 'oracle':
-            # not sure why we need this horrible hack - 
-            # I think there's some weirdness 
-            # with cx_oracle/oracle versions I'm using. 
-            os.environ["NLS_LANG"] = ".AL32UTF8" 
+            # not sure why we need this horrible hack -
+            # I think there's some weirdness
+            # with cx_oracle/oracle versions I'm using.
+            os.environ["NLS_LANG"] = ".AL32UTF8"
             import cx_Oracle
             if not getattr(cx_Oracle, '_cxmakedsn', None):
                 setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
-                cx_Oracle.makedsn = lambda *args, **kwargs: \
-                                        cx_Oracle._cxmakedsn(*args, **kwargs).replace('SID', 'SERVICE_NAME')
+
+                def newmakedsn(*args, **kw):
+                    cx_Oracle._cxmakedsn(*args, **kw).replace(
+                        'SID', 'SERVICE_NAME')
         elif safe_url.drivername == 'mysql':
             import MySQLdb.cursors
             # use server-side cursors by default (does this work with myISAM?)
-            connect_args={'cursorclass': MySQLdb.cursors.SSCursor}
+            connect_args = {'cursorclass': MySQLdb.cursors.SSCursor}
         self.engine = sa.engine.create_engine(url, connect_args=connect_args)
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_data.get_metadata(self.engine) # lazy, threaded, persistent cache
+            self.completion_data.get_metadata(self.engine)
         return True
 
     def flush_metadata(self):
@@ -206,7 +217,8 @@ class SqlPlugin(Plugin):
             self.completion_data.get_metadata(self.engine)
 
     def make_connection_url(self, config):
-        """Returns an SqlAlchemy connection URL based upon values in `config` dict.
+        """
+        Returns an SqlAlchemy connection URL based upon values in config dict.
 
         Args:
             config: dict-like object with keys: type, username, password,
@@ -216,8 +228,11 @@ class SqlPlugin(Plugin):
         """
         cfg = defaultdict(str)
         cfg.update(config)
-        return sa.engine.url.URL(drivername=cfg['type'], username=cfg['username'], password=cfg['password'], 
-                host=cfg['host'], database=cfg['database'], query=dict(urlparse.parse_qsl(cfg['query'])))
+        return sa.engine.url.URL(
+            drivername=cfg['type'], username=cfg['username'],
+            password=cfg['password'], host=cfg['host'],
+            database=cfg['database'],
+            query=dict(urlparse.parse_qsl(cfg['query'])))
 
     def execute(self, query):
         """Execute query against current db connection, return result set.
@@ -225,7 +240,7 @@ class SqlPlugin(Plugin):
         Args:
             query: string query to execute
         Returns:
-            Sqlalchemy's DB-API cursor-like object. 
+            Sqlalchemy's DB-API cursor-like object.
         """
         result = None
         if not self.connected:
@@ -245,7 +260,8 @@ class SqlPlugin(Plugin):
         if not self.trans_ctx or not self.trans_ctx.transaction.is_active:
             self.trans_ctx = self.engine.begin()
         else:
-            print "You are already in a transaction block and nesting is not supported"
+            print "You are already in a transaction" \
+                " block and nesting is not supported"
 
     def commit(self):
         """Commit current transaction if there was one."""
@@ -274,7 +290,7 @@ class SqlPlugin(Plugin):
         """Print a list of tablenames matching input glob/s.
 
         All table names are printed if no glob is given, otherwise
-        just those table names matching any of the *globs are printed. 
+        just those table names matching any of the *globs are printed.
 
         Args:
             *glob: zero or more globs to match against table names.
@@ -293,9 +309,10 @@ class SqlPlugin(Plugin):
         print '\n'.join(sorted(matches))
 
     def show_fields(self, *globs):
-        """Print a list of fields matching the input glob tableglob[.fieldglob].
+        """
+        Print a list of fields matching the input glob tableglob[.fieldglob].
 
-        See ipydb.magic.show_fields for examples. 
+        See ipydb.magic.show_fields for examples.
 
         Args:
             *globs: list of [tableglob].[fieldglob] strings
@@ -309,7 +326,7 @@ class SqlPlugin(Plugin):
             matches = dottedfields
         for glob in globs:
             bits = glob.split('.', 1)
-            if len(bits) == 1: # table name only
+            if len(bits) == 1:  # table name only
                 glob += '.*'
             matches.update(fnmatch.filter(dottedfields, glob))
         tprev = None
@@ -320,7 +337,9 @@ class SqlPlugin(Plugin):
                     print
                 print tablename
                 print '-' * len(tablename)
-            print "    %-35s%s" % (fieldname, self.completion_data.types(self.engine).get(match, '[?]'))
+            print "    %-35s%s" % (
+                fieldname,
+                self.completion_data.types(self.engine).get(match, '[?]'))
             tprev = tablename
         print
 
@@ -328,9 +347,9 @@ class SqlPlugin(Plugin):
         """Show fields referencing the input table/field arg.
 
         If arg is a tablename, then print fields which reference
-        any field in tablename. If arg is a field (specified by 
-        tablename.fieldname), then print only fields which reference 
-        the specified table.field. 
+        any field in tablename. If arg is a field (specified by
+        tablename.fieldname), then print only fields which reference
+        the specified table.field.
 
         Args:
             arg: Either a table name or a [table.field] name"""
@@ -342,7 +361,7 @@ class SqlPlugin(Plugin):
         fieldname = bits[1] if len(bits) > 1 else ''
         field = table = None
         meta = self.completion_data.sa_metadata
-        meta.reflect() # XXX: can be very slow! TODO: don't do this
+        meta.reflect()  # XXX: can be very slow! TODO: don't do this
         for tname, tbl in meta.tables.iteritems():
             if tbl.name.lower() == tablename.lower():
                 table = tbl
@@ -361,12 +380,12 @@ class SqlPlugin(Plugin):
         refs = []
         for tname, tbl in meta.tables.iteritems():
             for fk in tbl.foreign_keys:
-                if (field is not None and fk.references(table) \
-                        and bool(fk.get_referent(table) == field)) \
-                        or (field is None and fk.references(table)):
-                    refs.append(("%s.%s" % (fk.parent.table.name, 
-                                           fk.parent.name),
-                                fk.target_fullname))
+                if ((field is not None and fk.references(table) and
+                        bool(fk.get_referent(table) == field)) or
+                        (field is None and fk.references(table))):
+                    sourcefield = "%s.%s" % (
+                        fk.parent.table.name, fk.parent.name)
+                    refs.append(sourcefield, fk.target_fullname)
         if refs:
             maxleft = max(map(lambda x: len(x[0]), refs)) + 2
             fmt = u"%%-%ss references %%s" % (maxleft,)
@@ -377,18 +396,18 @@ class SqlPlugin(Plugin):
         """Render a result set and pipe through less.
 
         Args:
-            cursor: iterable of tuples, with one special method: 
+            cursor: iterable of tuples, with one special method:
                     cursor.keys() which returns a list of string columns
                     headings for the tuples.
         """
         try:
-            out = os.popen('less -FXRiS','w') ## XXX: use ipython's pager abstraction
+            out = os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
                 self.format_result_pretty(cursor, out=out)
         except IOError, msg:
-            if msg.args == (32, 'Broken pipe'): # user quit
+            if msg.args == (32, 'Broken pipe'):  # user quit
                 pass
             else:
                 raise
@@ -398,8 +417,8 @@ class SqlPlugin(Plugin):
     def format_result_pretty(self, cursor, out=sys.stdout):
         """Render an SQL result set as an ascii-table.
 
-        Renders an SQL result set to `out`, some file-like object. 
-        Assumes that we can determine the current terminal height and 
+        Renders an SQL result set to `out`, some file-like object.
+        Assumes that we can determine the current terminal height and
         width via the termsize module.
 
         Args:
@@ -409,11 +428,17 @@ class SqlPlugin(Plugin):
         """
         cols, lines = termsize()
         headings = cursor.keys()
+        heading_sizes = map(lambda x: len(unicode(x)), headings)
         for screenrows in isublists(cursor, lines - 4):
-            sizes = map(lambda x: len(unicode(x)), headings)
+            sizes = heading_sizes[:]
             for row in screenrows:
-                if row is None: break
-                sizes = map(max, zip(map(lambda x: min(self.max_fieldsize, len(unicode(x))), row), sizes))
+                if row is None:
+                    break
+                for idx, value in enumerate(row):
+                    if not isinstance(value, basestring):
+                        value = str(value)
+                    size = max(sizes[idx], len(value))
+                    sizes[idx] = min(size, self.max_fieldsize)
             for size in sizes:
                 out.write('+' + '-' * (size + 2))
             out.write('+\n')
@@ -426,13 +451,14 @@ class SqlPlugin(Plugin):
             out.write('+\n')
             for rw in screenrows:
                 if rw is None:
-                    break # from isublists impl
+                    break  # from isublists impl
                 for idx, size in enumerate(sizes):
                     fmt = u'| %%-%is ' % size
                     value = unicode(rw[idx])
                     if len(value) > self.max_fieldsize:
                         value = value[:self.max_fieldsize - 5] + u'[...]'
-                    value = value.replace(u'\n', u'^').replace(u'\r', u'^').replace(u'\t', u' ')
+                    value = value.replace(u'\n', u'^')
+                    value = value.replace(u'\r', u'^').replace(u'\t', u' ')
                     out.write((fmt % value).encode('utf8'))
                 out.write('|\n')
 
@@ -448,27 +474,26 @@ class SqlPlugin(Plugin):
         writer.writerows(cursor)
 
     def interested_in(self, completer, text, line_buffer=None):
-        """Return True if ipydb should try to do completions on the current line_buffer
-        otherwise return False. 
+        """Return True if ipydb is interested in completions for line_buffer.
 
         Args:
             completer: IPython.core.completer.IPCompleter instance.
-            text: Current token (str) of text being completed. 
-            line_buffer: str text for the whole line. 
+            text: Current token (str) of text being completed.
+            line_buffer: str text for the whole line.
         Returns:
-            True if ipydb should try to complete text, False otherwise. 
+            True if ipydb should try to complete text, False otherwise.
         """
-        completion_magics = "what_references show_fields connect "\
-                           "sql select insert update delete sqlformat".split()
+        completion_magics = "what_references show_fields connect " \
+            "sql select insert update delete sqlformat".split()
         if text and not line_buffer:
-            return True # this is unfortunate...
+            return True  # this is unfortunate...
         else:
             first_token = line_buffer.split()[0].lstrip('%')
             if first_token in completion_magics:
                 return True
-            magic_assignment_re = r'^\s*\S+\s*=\s*%({magics})'.format(magics='|'.join(completion_magics))
+            magic_assignment_re = r'^\s*\S+\s*=\s*%({magics})'.format(
+                magics='|'.join(completion_magics))
             return re.match(magic_assignment_re, line_buffer) is not None
-            
 
     def complete(self, completer, text, line_buffer=None):
         """Return a list of "tab-completion" strings for text.
@@ -476,7 +501,7 @@ class SqlPlugin(Plugin):
         Args:
             completer: IPython.core.completer.IPCompleter instance.
             text: String of text to complete.
-            line_buffer: Full line of text (str) that is being completed. 
+            line_buffer: Full line of text (str) that is being completed.
         Returns:
             list of strings which can complete the input text.
         """
@@ -510,16 +535,17 @@ class SqlPlugin(Plugin):
             if word[:n] == text:
                 appendfunc(word)
 
-    def complete_sql(self, completer, text, line_buffer=None, first_token=None):
+    def complete_sql(self, completer, text, line_buffer=None,
+                     first_token=None):
         """Return completion suggestions based up database schema terms.
 
-        See complete() for keyword arguments. 
+        See complete() for keyword arguments.
 
         Args:
             first_token: The first non-whitespace token from the front
-                         of line_buffer. 
+                         of line_buffer.
         Returns:
-            A List of strings which can complete input text. 
+            A List of strings which can complete input text.
         """
         if not self.connected:
             return []
@@ -534,20 +560,20 @@ class SqlPlugin(Plugin):
             head, tail = text.split('.')
             # todo: check that head is a valid keyword / tablename, alias etc
             #       and not something like 1.35<tab>
-            # todo: parse aliases ahead of cursor, 
+            # todo: parse aliases ahead of cursor,
             # use them for dottedfieldname search.
             self.match_lists([dottedfields], text, matches_append)
             if not len(matches):
-                # try for any field (following), could be 
-                # table alias that is not yet defined 
+                # try for any field (following), could be
+                # table alias that is not yet defined
                 # (e.g. user typed `select foo.id, foo.<tab>...`)
-                self.match_lists([tables], tail, 
-                        lambda match: matches_append(head + '.' + match))
+                self.match_lists(
+                    [tables], tail,
+                    lambda match: matches_append(head + '.' + match))
                 if tail == '':
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
                 return matches
-        self.match_lists([tables, fields, RESERVED_WORDS], 
-                        text, matches_append)
+        self.match_lists([tables, fields, RESERVED_WORDS],
+                         text, matches_append)
         return matches
-

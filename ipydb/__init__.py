@@ -5,7 +5,7 @@ IPython extension to help you type and execute SQL queries
 
 Usage:
     $ ipython
-    In [1]: %load_ext ipydb            # ipydb needs to be loadable via sys.path
+    In [1]: %load_ext ipydb
     In [2]: %connect_url mysql://user:pass@localhost/mydbname
     In [3]: %select * from person order by id desc
 
@@ -25,6 +25,7 @@ _loaded = False
 _backup_prompt1 = ''
 CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.db-connections')
 
+
 def load_ipython_extension(ip):
     """Load the ipydb into the active ipython session"""
     from plugin import SqlPlugin
@@ -36,24 +37,33 @@ def load_ipython_extension(ip):
         _loaded = True
         ipydb_help()
 
+
 def configure_prompt(ipydb):
     from IPython.core.prompts import LazyEvaluate
     global _backup_prompt1
     ip = ipydb.shell
-    ip.prompt_manager.lazy_evaluate_fields['_ipydb'] = LazyEvaluate(ipydb.get_db_ps1)
-    ip.prompt_manager.lazy_evaluate_fields['_reflecting'] = LazyEvaluate(ipydb.get_reflecting_ps1)
-    ip.prompt_manager.lazy_evaluate_fields['_tx'] = LazyEvaluate(ipydb.get_transaction_ps1)
+    ip.prompt_manager.lazy_evaluate_fields['_ipydb'] = LazyEvaluate(
+        ipydb.get_db_ps1)
+    ip.prompt_manager.lazy_evaluate_fields['_reflecting'] = LazyEvaluate(
+        ipydb.get_reflecting_ps1)
+    ip.prompt_manager.lazy_evaluate_fields['_tx'] = LazyEvaluate(
+        ipydb.get_transaction_ps1)
     tmpl = ip.prompt_manager.in_template
     _backup_prompt1 = tmpl
     tmpl = tmpl.rstrip(': ')
-    tmpl += '{color.LightPurple}{_reflecting}{color.Cyan}{_ipydb}{color.LightRed}{_tx}{color.Green}: '
+    tmpl += '{color.LightPurple}{_reflecting}' \
+            '{color.Cyan}{_ipydb}' \
+            '{color.LightRed}{_tx}' \
+            '{color.Green}: '
     ip.prompt_manager.in_template = tmpl
+
 
 def ipydb_help():
     msg = "Welcome to ipydb %s!" % __version__
     print msg
     print
-    msg2 = "ipydb has added the following `magic` commands to your ipython session:"
+    msg2 = 'ipydb has added the following `magic` ' \
+        'commands to your ipython session:'
     print msg2
     helps = get_brief_help()
     maxname = max(map(len, (r[0] for r in helps)))
@@ -62,15 +72,19 @@ def ipydb_help():
         print ("    %%%-" + str(maxname) + "s    %s") % (magic, doc)
     print '-' * (maxname + 5)
     print
-    print "You can get detailed usage information for any of the above commands "
-    print "by typing %magic_command_name? For example, to get help on %connect, type"
+    print "You can get detailed usage information " \
+        "for any of the above commands "
+    print "by typing %magic_command_name? For example, " \
+        "to get help on %connect, type"
     print
     print "    %connect?"
-    print 
-    print "Get started by connecting to a database using %connect_url or %connect"
+    print
+    print "Get started by connecting to a database " \
+        "using %connect_url or %connect"
+
 
 def get_brief_help():
-    """return a list of (magic_name, magic_first_line_of_docstring) 
+    """return a list of (magic_name, magic_first_line_of_docstring)
     for all the magic methods ipydb defines"""
     from magic import SqlMagics
     docs = []
@@ -87,10 +101,7 @@ def get_brief_help():
             docs.append((magic, doc.split('\n')[0]))
     return docs
 
+
 def unload_ipython_extension(ip):
     ip.prompt_manager.in_template = _backup_prompt1
     # XXX: close any open connection / cursors..
-
-
-
-
