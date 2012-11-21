@@ -604,11 +604,37 @@ class SqlPlugin(Plugin):
         if line_buffer and len(line_buffer.split()) == 2:
             # check for select table_name<tab>
             first, second = line_buffer.split()
-            if first == 'select' and second in tables:
-                cols = [ f.split('.')[1] for f in dottedfields \
-                        if f.startswith(second) ]
-                return ['%s from %s order by %s' % 
-                        (', '.join(sorted(cols)), second, cols[0])] 
+            if first in ('select', 'insert') and second in tables:
+                cols = []
+                dcols = []
+                for f in dottedfields:
+                    tablename = f.split('.')[0]
+                    if second == tablename:
+                        dcols.append(f)
+                        cols.append(f.split('.')[1])
+                colstr = ', '.join(sorted(cols))
+                if first == 'select':
+                    return ['%s from %s order by %s' % 
+                            (colstr, second, cols[0])] 
+                else:
+                    deflt = []
+                    types = self.completion_data.types(self.engine)
+                    restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
+                    renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
+                                          '|DOUBLE.*|FIXED.*|SHORT.*')
+                    redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
+                    for dc in sorted(dcols):
+                        typ = types[dc]
+                        tmpl = ''
+                        if redate.search(typ):
+                            tmpl = '""'  # XXX: now() or something?
+                        elif restr.search(typ):
+                            tmpl = '""'
+                        elif renumeric.search(typ):
+                            tmpl = '0'
+                        deflt.append(tmpl)
+                    return ['into %s (%s) values (%s)' %  
+                            (second, colstr, ', '.join(deflt))]
         if text.count('.') == 1:
             head, tail = text.split('.')
             # todo: check that head is a valid keyword / tablename, alias etc
@@ -620,9 +646,7 @@ class SqlPlugin(Plugin):
                 # try for any field (following), could be
                 # table alias that is not yet defined
                 # (e.g. user typed `select foo.id, foo.<tab>...`)
-                self.match_lists(
-                    [tables], tail,
-                    lambda match: matches_append(head + '.' + match))
+                self.match_lists( [tables], tail, lambda match: matches_append(head + '.' + match))
                 if tail == '':
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
