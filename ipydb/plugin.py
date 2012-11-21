@@ -601,7 +601,14 @@ class SqlPlugin(Plugin):
         dottedfields = metadata['dottedfields']
         fields = metadata['fields']
         tables = metadata['tables']
-
+        if line_buffer and len(line_buffer.split()) == 2:
+            # check for select table_name<tab>
+            first, second = line_buffer.split()
+            if first == 'select' and second in tables:
+                cols = [ f.split('.')[1] for f in dottedfields \
+                        if f.startswith(second) ]
+                return ['%s from %s order by %s' % 
+                        (', '.join(sorted(cols)), second, cols[0])] 
         if text.count('.') == 1:
             head, tail = text.split('.')
             # todo: check that head is a valid keyword / tablename, alias etc
