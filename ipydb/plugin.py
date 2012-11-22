@@ -47,21 +47,23 @@ def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
-def ipydb_completer(self, text=None):
+def ipydb_completer(self, event):
     """Returns a list of suggested completions for text.
 
-    Note: This is bound to IPython.core.completer.IPCompleter
+    Note: This is bound to an ipython shell instance 
           and called on tab-presses by ipython.
     Args:
-        text: String of text to complete.
+        event: see IPython.core.completer
     Returns:
         A list of candidate strings which complete the input text
+        or None to propagate completion to other handlers, or []
+        to suppress further completion
     """
     sqlplugin = self.shell.plugin_manager.get_plugin(PLUGIN_NAME)
     if sqlplugin:
-        return sqlplugin.complete(self, text, self.line_buffer)
+        return sqlplugin.complete(self, event)
     else:
-        return []
+        return None
 
 
 class FakedResult(object):
@@ -86,6 +88,8 @@ class SqlPlugin(Plugin):
     not_connected_message = "ipydb is not connected to a database. " \
         "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
         "%connect_url dbdriver://user:pass@host/dbname\n"
+    completion_starters = "what_references show_fields connect " \
+        "sql select insert update delete sqlformat".split()
 
     def __init__(self, shell=None, config=None):
         """Constructor.
@@ -98,7 +102,6 @@ class SqlPlugin(Plugin):
         self.auto_magics = SqlMagics(self, shell)
         shell.register_magics(self.auto_magics)
         self.sqlformat = 'table'  # 'table' | 'csv'
-        self.shell.set_custom_completer(ipydb_completer)
         self.do_reflection = True
         self.connected = False
         self.engine = None
@@ -107,8 +110,21 @@ class SqlPlugin(Plugin):
         self.trans_ctx = None
         self.debug = False
         default, configs = getconfigs()
+        self.init_completer()
         if default:
             self.connect(default)
+
+    def init_completer(self):
+        # self.shell.set_custom_completer(ipydb_completer)
+        for token in self.completion_starters:
+            self.shell.set_hook('complete_command',
+                                ipydb_completer, str_key=token)
+    def test_completer(self, event):
+        print "test compl"
+        if event.symbol.startswith('a'):
+            return ['aaaa']
+        else:
+            return [event.symbol + 'boo']
 
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
@@ -522,53 +538,50 @@ class SqlPlugin(Plugin):
         writer.writerow(cursor.keys())
         writer.writerows(cursor)
 
-    def interested_in(self, completer, text, line_buffer=None):
+    def interested_in(self, text, line_buffer=None):
         """Return True if ipydb is interested in completions for line_buffer.
 
         Args:
-            completer: IPython.core.completer.IPCompleter instance.
             text: Current token (str) of text being completed.
             line_buffer: str text for the whole line.
         Returns:
             True if ipydb should try to complete text, False otherwise.
         """
-        completion_magics = "what_references show_fields connect " \
-            "sql select insert update delete sqlformat".split()
         if text and not line_buffer:
             return True  # this is unfortunate...
         else:
             first_token = line_buffer.split()[0].lstrip('%')
-            if first_token in completion_magics:
+            if first_token in self.completion_starters:
                 return True
             magic_assignment_re = r'^\s*\S+\s*=\s*%({magics})'.format(
-                magics='|'.join(completion_magics))
+                magics='|'.join(self.completion_starters))
             return re.match(magic_assignment_re, line_buffer) is not None
 
-    def complete(self, completer, text, line_buffer=None):
+    def complete(self, event):
         """Return a list of "tab-completion" strings for text.
 
         Args:
-            completer: IPython.core.completer.IPCompleter instance.
-            text: String of text to complete.
-            line_buffer: Full line of text (str) that is being completed.
+            event: see IPython.core.completer
         Returns:
             list of strings which can complete the input text.
         """
+        text, line_buffer = event.symbol, event.line_buffer 
         matches = []
         matches_append = matches.append
-        if not self.interested_in(completer, text, line_buffer):
-            return []
+        if not self.interested_in(event):
+            return None 
         first_token = None
         if line_buffer:
             first_token = line_buffer.split()[0].lstrip('%')
         if first_token == 'connect':
             keys = getconfigs()[1].keys()
             self.match_lists([keys], text, matches_append)
-            return matches
+            return matches or None
         if first_token == 'sqlformat':
             self.match_lists([self.sqlformats], text, matches_append)
-            return matches
-        return self.complete_sql(completer, text, line_buffer, first_token)
+            return matches or None
+        event.first_token = first_token
+        return self.complete_sql(event)
 
     def match_lists(self, lists, text, appendfunc):
         """Helper to substring-match text in a list-of-lists.
@@ -585,8 +598,7 @@ class SqlPlugin(Plugin):
             if word[:n] == text:
                 appendfunc(word)
 
-    def complete_sql(self, completer, text, line_buffer=None,
-                     first_token=None):
+    def complete_sql(self, event):
         """Return completion suggestions based up database schema terms.
 
         See complete() for keyword arguments.
@@ -597,8 +609,10 @@ class SqlPlugin(Plugin):
         Returns:
             A List of strings which can complete input text.
         """
+        text, line_buffer, first_token = (event.symbol, event.line_buffer,
+                                         event.first_token)
         if not self.connected:
-            return []
+            return None 
         matches = []
         matches_append = matches.append
         metadata = self.completion_data.get_metadata(self.engine, noisy=False)
@@ -655,7 +669,19 @@ class SqlPlugin(Plugin):
                 if tail == '':
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
-                return matches
+                return matches or None
+        if text_until_cursor:
+            last_token = text_until_cursor.split()[-1]
+            if len(last_token.split('.')) == 2:
+                head, tail = last_token.split('.')
+                if head in tables and tail == '*':
+                    # tablename.*<tab> -> expand names
+                    dotted = []
+                    for f in dottedfields:
+                        tab, fld = f.split('.')
+                        if tab == head:
+                            dotted.append(f)
+                    return [', '.join(sorted(dotted))]
         self.match_lists([tables, fields, RESERVED_WORDS],
                          text, matches_append)
-        return matches
+        return matches or None
