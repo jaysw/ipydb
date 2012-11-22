@@ -105,6 +105,7 @@ class SqlPlugin(Plugin):
         self.nickname = None
         self.autocommit = True
         self.trans_ctx = None
+        self.debug = False
         default, configs = getconfigs()
         if default:
             self.connect(default)
@@ -219,8 +220,9 @@ class SqlPlugin(Plugin):
                 setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
 
                 def newmakedsn(*args, **kw):
-                    cx_Oracle._cxmakedsn(*args, **kw).replace(
+                    return cx_Oracle._cxmakedsn(*args, **kw).replace(
                         'SID', 'SERVICE_NAME')
+                cx_Oracle.makedsn = newmakedsn
         elif safe_url.drivername == 'mysql':
             import MySQLdb.cursors
             # use server-side cursors by default (does this work with myISAM?)
@@ -279,6 +281,8 @@ class SqlPlugin(Plugin):
             try:
                 result = conn.execute(query)
             except Exception, e:
+                if self.debug:
+                    raise
                 print e.message
         return result
 
@@ -614,14 +618,14 @@ class SqlPlugin(Plugin):
                         cols.append(f.split('.')[1])
                 colstr = ', '.join(sorted(cols))
                 if first == 'select':
-                    return ['%s from %s order by %s' % 
-                            (colstr, second, cols[0])] 
+                    return ['%s from %s order by %s' %
+                            (colstr, second, cols[0])]
                 else:
                     deflt = []
                     types = self.completion_data.types(self.engine)
                     restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
                     renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
-                                          '|DOUBLE.*|FIXED.*|SHORT.*')
+                                           '|DOUBLE.*|FIXED.*|SHORT.*')
                     redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
                     for dc in sorted(dcols):
                         typ = types[dc]
@@ -633,7 +637,7 @@ class SqlPlugin(Plugin):
                         elif renumeric.search(typ):
                             tmpl = '0'
                         deflt.append(tmpl)
-                    return ['into %s (%s) values (%s)' %  
+                    return ['into %s (%s) values (%s)' %
                             (second, colstr, ', '.join(deflt))]
         if text.count('.') == 1:
             head, tail = text.split('.')
@@ -646,7 +650,8 @@ class SqlPlugin(Plugin):
                 # try for any field (following), could be
                 # table alias that is not yet defined
                 # (e.g. user typed `select foo.id, foo.<tab>...`)
-                self.match_lists( [tables], tail, lambda match: matches_append(head + '.' + match))
+                self.match_lists(
+                    [tables], tail, lambda match: matches_append(head + '.' + match))
                 if tail == '':
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
