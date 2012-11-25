@@ -56,14 +56,22 @@ def ipydb_completer(self, event):
         event: see IPython.core.completer
     Returns:
         A list of candidate strings which complete the input text
-        or None to propagate completion to other handlers, or []
-        to suppress further completion
+        or None to propagate completion to other handlers or
+        return [] to suppress further completion
     """
-    sqlplugin = self.shell.plugin_manager.get_plugin(PLUGIN_NAME)
-    if sqlplugin:
-        return sqlplugin.complete(self, event)
-    else:
-        return None
+    try:
+        sqlplugin = self.plugin_manager.get_plugin(PLUGIN_NAME)
+        if sqlplugin:
+            if sqlplugin.debug:
+                print 'complete: sym=[%s] line=[%s] tuc=[%s]' % (event.symbol,
+                    event.line, event.text_until_cursor)
+            completions = sqlplugin.complete(event)
+            if sqlplugin.debug:
+                print 'completions:', completions
+            return completions
+    except Exception, e:
+        print repr(e)
+    return None
 
 
 class FakedResult(object):
@@ -116,6 +124,12 @@ class SqlPlugin(Plugin):
 
     def init_completer(self):
         # self.shell.set_custom_completer(ipydb_completer)
+        # to complete things like table.* we needto 
+        # change the ipydb spliiter delims:
+        delims = self.shell.Completer.splitter.delims.replace('*', '')
+        self.shell.Completer.splitter.delim = delims
+        if self.shell.Completer.readline:
+            self.shell.Completer.readline.set_completer_delims(delims)
         for token in self.completion_starters:
             self.shell.set_hook('complete_command',
                                 ipydb_completer, str_key=token)
@@ -538,7 +552,7 @@ class SqlPlugin(Plugin):
         writer.writerow(cursor.keys())
         writer.writerows(cursor)
 
-    def interested_in(self, text, line_buffer=None):
+    def interested_in(self, event):
         """Return True if ipydb is interested in completions for line_buffer.
 
         Args:
@@ -547,6 +561,7 @@ class SqlPlugin(Plugin):
         Returns:
             True if ipydb should try to complete text, False otherwise.
         """
+        line_buffer, text = event.line, event.symbol
         if text and not line_buffer:
             return True  # this is unfortunate...
         else:
@@ -565,7 +580,7 @@ class SqlPlugin(Plugin):
         Returns:
             list of strings which can complete the input text.
         """
-        text, line_buffer = event.symbol, event.line_buffer 
+        text, line_buffer = event.symbol, event.line
         matches = []
         matches_append = matches.append
         if not self.interested_in(event):
@@ -609,8 +624,9 @@ class SqlPlugin(Plugin):
         Returns:
             A List of strings which can complete input text.
         """
-        text, line_buffer, first_token = (event.symbol, event.line_buffer,
-                                         event.first_token)
+        text, line_buffer, first_token = (event.symbol, event.line,
+                                          event.first_token)
+        text_until_cursor = event.text_until_cursor
         if not self.connected:
             return None 
         matches = []
@@ -653,12 +669,16 @@ class SqlPlugin(Plugin):
                         deflt.append(tmpl)
                     return ['into %s (%s) values (%s)' %
                             (second, colstr, ', '.join(deflt))]
-        if text.count('.') == 1:
+        if event.symbol.count('.') == 1:
             head, tail = text.split('.')
-            # todo: check that head is a valid keyword / tablename, alias etc
-            #       and not something like 1.35<tab>
-            # todo: parse aliases ahead of cursor,
-            # use them for dottedfieldname search.
+            if head in tables and tail == '*':
+                # tablename.*<tab> -> expand names
+                dotted = []
+                for f in dottedfields:
+                    tab, fld = f.split('.')
+                    if tab == head:
+                        dotted.append(f)
+                return [', '.join(sorted(dotted))]
             self.match_lists([dottedfields], text, matches_append)
             if not len(matches):
                 # try for any field (following), could be
@@ -670,18 +690,6 @@ class SqlPlugin(Plugin):
                     fields = map(lambda word: head + '.' + word, fields)
                     matches.extend(fields)
                 return matches or None
-        if text_until_cursor:
-            last_token = text_until_cursor.split()[-1]
-            if len(last_token.split('.')) == 2:
-                head, tail = last_token.split('.')
-                if head in tables and tail == '*':
-                    # tablename.*<tab> -> expand names
-                    dotted = []
-                    for f in dottedfields:
-                        tab, fld = f.split('.')
-                        if tab == head:
-                            dotted.append(f)
-                    return [', '.join(sorted(dotted))]
         self.match_lists([tables, fields, RESERVED_WORDS],
                          text, matches_append)
         return matches or None
