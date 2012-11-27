@@ -429,7 +429,7 @@ class SqlPlugin(Plugin):
                         (field is None and fk.references(table))):
                     sourcefield = "%s.%s" % (
                         fk.parent.table.name, fk.parent.name)
-                    refs.append(sourcefield, fk.target_fullname)
+                    refs.append((sourcefield, fk.target_fullname))
         if refs:
             maxleft = max(map(lambda x: len(x[0]), refs)) + 2
             fmt = u"%%-%ss references %%s" % (maxleft,)
