@@ -87,6 +87,21 @@ class FakedResult(object):
         return self.headings
 
 
+class MonkeyString(str):
+    """This is to avoid the restriction in
+    i.c.completer.IPCompleter.dispatch_custom_completer where
+    matches must begin with the text being matched."""
+
+    def __new__(self, text, completion):
+        self.text = text
+        return str.__new__(self, completion)
+
+    def startswith(self, text):
+        if self.text == text:
+            return True
+        return False
+
+
 class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 
@@ -133,12 +148,6 @@ class SqlPlugin(Plugin):
         for token in self.completion_starters:
             self.shell.set_hook('complete_command',
                                 ipydb_completer, str_key=token)
-    def test_completer(self, event):
-        print "test compl"
-        if event.symbol.startswith('a'):
-            return ['aaaa']
-        else:
-            return [event.symbol + 'boo']
 
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
@@ -459,7 +468,7 @@ class SqlPlugin(Plugin):
                         (field is None and fk.references(table))):
                     sourcefield = "%s.%s" % (
                         fk.parent.table.name, fk.parent.name)
-                    refs.append(sourcefield, fk.target_fullname)
+                    refs.append((sourcefield, fk.target_fullname))
         if refs:
             maxleft = max(map(lambda x: len(x[0]), refs)) + 2
             fmt = u"%%-%ss references %%s" % (maxleft,)
@@ -648,8 +657,9 @@ class SqlPlugin(Plugin):
                         cols.append(f.split('.')[1])
                 colstr = ', '.join(sorted(cols))
                 if first == 'select':
-                    return ['%s from %s order by %s' %
-                            (colstr, second, cols[0])]
+                    return [MonkeyString(event.symbol, 
+                            '%s from %s order by %s' %
+                            (colstr, second, cols[0]))]
                 else:
                     deflt = []
                     types = self.completion_data.types(self.engine)
@@ -667,8 +677,9 @@ class SqlPlugin(Plugin):
                         elif renumeric.search(typ):
                             tmpl = '0'
                         deflt.append(tmpl)
-                    return ['into %s (%s) values (%s)' %
-                            (second, colstr, ', '.join(deflt))]
+                    return [MonkeyString(event.symbol,
+                            'into %s (%s) values (%s)' %
+                            (second, colstr, ', '.join(deflt)))]
         if event.symbol.count('.') == 1:
             head, tail = text.split('.')
             if head in tables and tail == '*':
@@ -678,7 +689,8 @@ class SqlPlugin(Plugin):
                     tab, fld = f.split('.')
                     if tab == head:
                         dotted.append(f)
-                return [', '.join(sorted(dotted))]
+                return [MonkeyString(event.symbol,
+                        ', '.join(sorted(dotted)))]
             self.match_lists([dottedfields], text, matches_append)
             if not len(matches):
                 # try for any field (following), could be
