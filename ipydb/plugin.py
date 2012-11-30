@@ -50,7 +50,7 @@ def isublists(l, n):
 def ipydb_completer(self, event):
     """Returns a list of suggested completions for text.
 
-    Note: This is bound to an ipython shell instance 
+    Note: This is bound to an ipython shell instance
           and called on tab-presses by ipython.
     Args:
         event: see IPython.core.completer
@@ -99,7 +99,8 @@ class MonkeyString(str):
     def startswith(self, text):
         if self.text == text:
             return True
-        return False
+        else:
+            return super(MonkeyString, self).startswith(text)
 
 
 class SqlPlugin(Plugin):
