@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from sqlalchemy.sql.compiler import RESERVED_WORDS
 from IPython.core.plugin import Plugin
 from termsize import termsize
-from magic import SqlMagics
+from magic import SqlMagics, register_sql_aliases
 from metadata import CompletionDataAccessor
 from ipydb import CONFIG_FILE, PLUGIN_NAME
 import urlparse
@@ -125,6 +125,7 @@ class SqlPlugin(Plugin):
         super(SqlPlugin, self).__init__(shell=shell, config=config)
         self.auto_magics = SqlMagics(self, shell)
         shell.register_magics(self.auto_magics)
+        register_sql_aliases(shell.magics_manager, self.auto_magics)
         self.sqlformat = 'table'  # 'table' | 'csv'
         self.do_reflection = True
         self.connected = False

@@ -95,7 +95,10 @@ def get_brief_help():
     for magic in sorted(magics.keys()):
         m = getattr(SqlMagics, magic, None)
         if m:
-            doc = getattr(m, '__doc__', '').strip()
+            if hasattr(m, '__description__'):
+                doc = m.__description__
+            else:
+                doc = getattr(m, '__doc__', '').strip()
             if not doc:
                 doc = '<No Docstring>'
             docs.append((magic, doc.split('\n')[0]))

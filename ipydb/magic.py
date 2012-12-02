@@ -11,6 +11,44 @@ from IPython.core.magic import Magics, magics_class, \
     line_magic, line_cell_magic
 from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
+from IPython.utils.process import arg_split
+
+SQL_ALIASES = 'select insert update delete create alter drop'.split()
+
+
+def create_sql_alias(alias, magic_manager, sqlmagics):
+    """Returns a function which calls SqlMagics.sql
+
+    For example, create_sql_alias('select', mm, sqlm) returns a function
+    which when called like this: _sqlalias('-r -a --foo=bar * from thing')
+    will rearrange options in the line and result in the following call:
+        sqlmagics.sql("-r -a --foo=bar select * from thing")
+    """
+    def _sqlalias(line, cell=None):
+        """Alias to %sql"""
+        opts, args = [], []
+        for chunk in arg_split(line):
+            if chunk.startswith('-'):
+                opts.append(chunk)
+            else:
+                args.append(chunk)
+        line = '%s %s %s' % (' '.join(opts), alias, ' '.join(args))
+        return sqlmagics.sql(line, cell)
+    return _sqlalias
+
+
+def register_sql_aliases(magic_manager, sqlmagics):
+    """Creates and registers convenience aliases to SqlMagics.sql for 
+    %select, %insert, %update, ...
+
+    Args:
+        magic_manager: ipython's shell.magic_manager instance
+        sqlmagics: instance of SqlMagics
+    """    
+    for alias in SQL_ALIASES:
+        magic_func = create_sql_alias(alias, magic_manager, sqlmagics)
+        magic_func.func_name = alias
+        magic_manager.register_function(magic_func, 'line', alias)
 
 
 @magics_class
@@ -19,7 +57,7 @@ class SqlMagics(Magics):
     def __init__(self, ipydb, *a, **kw):
         super(SqlMagics, self).__init__(*a, **kw)
         self.ipydb = ipydb
-
+        
     @line_magic
     def ipydb_help(self, *args):
         """Show this help message."""
@@ -66,10 +104,9 @@ class SqlMagics(Magics):
         """Run an sql statement against the current ipydb connection.
 
         Examples:
-
             %sql select first_name from person where first_name like 'J%'
 
-        Also works as a multi-line ipython command.
+            Also works as a multi-line ipython command:
 
             %%sql
                 select
@@ -79,11 +116,26 @@ class SqlMagics(Magics):
                 where
                     id < 10
 
-        To get a result set back instead of printing the query results:
+        Returning a result set:
+            To return a database cursor, use the -r option:
 
             results = %sql -r select first_name from employees
             for row in results:
                 do_things_with(row.first_name)
+        
+        Shortcut Aliases to %sql:
+            ipydb defines some 'short-cut' aliases which call %sql.
+            Aliases have been added for:
+
+                {select, insert, update, delete, create, alter, drop}
+
+            This is so that you can write 'natural' SQL statements like so:
+
+                select * from my_table
+
+            Which results in: 
+
+                %sql select * from my_table 
 
         """
         args = parse_argstring(self.sql, args)
@@ -95,31 +147,8 @@ class SqlMagics(Magics):
             return result
         if result and result.returns_rows:
             self.ipydb.render_result(result)
-
-    @line_cell_magic
-    def select(self, param='', cell=None):
-        """Run a select statement against the current connection.
-
-        Example:
-
-            %select id, name from things order by name desc
-
-        If autocall is turned on, you can simply run the following:
-
-            select * from my_table order by id desc
-
-        Can be run as an ipython multi-line statement. For example:
-            %%select first_name, last_name
-            from
-                my_table
-            where
-                foo = 'lur'
-        """
-        if cell is not None:
-            param += '\n' + cell
-        result = self.ipydb.execute('select ' + param)
-        if result:
-            self.ipydb.render_result(result)
+    sql.__description__ = 'Run an sql statement against ' \
+        'the current ipydb connection.'
 
     @line_magic
     def show_tables(self, param=''):
