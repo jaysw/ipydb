@@ -105,6 +105,7 @@ class SqlPlugin(Plugin):
             self.shell.Completer.readline.set_completer_delims(delims)
         self.completer = IpydbCompleter(self)
         for str_key in self.completer.commands_completers.keys():
+            str_key = '%' + str_key  # as ipython magic commands
             self.shell.set_hook('complete_command',
                                 ipydb_complete,
                                 str_key=str_key)

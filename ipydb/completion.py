@@ -105,7 +105,10 @@ class IpydbCompleter(object):
             Returns:
                 list of strings which can complete event.symbol
         """
-        func = self.commands_completers.get(ev.command)
+        key = ev.command
+        if ev.command.startswith('%'):
+            key = ev.command[1:]
+        func = self.commands_completers.get(key)
         if func is None:
             print "Warning: no completer for:", ev.command
             return None
