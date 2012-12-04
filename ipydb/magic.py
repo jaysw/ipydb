@@ -38,13 +38,13 @@ def create_sql_alias(alias, magic_manager, sqlmagics):
 
 
 def register_sql_aliases(magic_manager, sqlmagics):
-    """Creates and registers convenience aliases to SqlMagics.sql for 
+    """Creates and registers convenience aliases to SqlMagics.sql for
     %select, %insert, %update, ...
 
     Args:
         magic_manager: ipython's shell.magic_manager instance
         sqlmagics: instance of SqlMagics
-    """    
+    """
     for alias in SQL_ALIASES:
         magic_func = create_sql_alias(alias, magic_manager, sqlmagics)
         magic_func.func_name = alias
@@ -57,7 +57,7 @@ class SqlMagics(Magics):
     def __init__(self, ipydb, *a, **kw):
         super(SqlMagics, self).__init__(*a, **kw)
         self.ipydb = ipydb
-        
+
     @line_magic
     def ipydb_help(self, *args):
         """Show this help message."""

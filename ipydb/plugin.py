@@ -12,16 +12,17 @@ import csv
 import itertools
 import fnmatch
 import os
-import re
 import sys
-import sqlalchemy as sa
-from sqlalchemy.sql.compiler import RESERVED_WORDS
+
 from IPython.core.plugin import Plugin
-from termsize import termsize
 from magic import SqlMagics, register_sql_aliases
 from metadata import CompletionDataAccessor
-from ipydb import CONFIG_FILE, PLUGIN_NAME
+import sqlalchemy as sa
+from termsize import termsize
 import urlparse
+
+from completion import IpydbCompleter, ipydb_complete
+from ipydb import CONFIG_FILE
 
 
 def getconfigs():
@@ -47,33 +48,6 @@ def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
-def ipydb_completer(self, event):
-    """Returns a list of suggested completions for text.
-
-    Note: This is bound to an ipython shell instance
-          and called on tab-presses by ipython.
-    Args:
-        event: see IPython.core.completer
-    Returns:
-        A list of candidate strings which complete the input text
-        or None to propagate completion to other handlers or
-        return [] to suppress further completion
-    """
-    try:
-        sqlplugin = self.plugin_manager.get_plugin(PLUGIN_NAME)
-        if sqlplugin:
-            if sqlplugin.debug:
-                print 'complete: sym=[%s] line=[%s] tuc=[%s]' % (event.symbol,
-                    event.line, event.text_until_cursor)
-            completions = sqlplugin.complete(event)
-            if sqlplugin.debug:
-                print 'completions:', completions
-            return completions
-    except Exception, e:
-        print repr(e)
-    return None
-
-
 class FakedResult(object):
 
     def __init__(self, items, headings):
@@ -87,22 +61,6 @@ class FakedResult(object):
         return self.headings
 
 
-class MonkeyString(str):
-    """This is to avoid the restriction in
-    i.c.completer.IPCompleter.dispatch_custom_completer where
-    matches must begin with the text being matched."""
-
-    def __new__(self, text, completion):
-        self.text = text
-        return str.__new__(self, completion)
-
-    def startswith(self, text):
-        if self.text == text:
-            return True
-        else:
-            return super(MonkeyString, self).startswith(text)
-
-
 class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 
@@ -112,8 +70,6 @@ class SqlPlugin(Plugin):
     not_connected_message = "ipydb is not connected to a database. " \
         "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
         "%connect_url dbdriver://user:pass@host/dbname\n"
-    completion_starters = "what_references show_fields connect " \
-        "sql select insert update delete sqlformat".split()
 
     def __init__(self, shell=None, config=None):
         """Constructor.
@@ -140,16 +96,18 @@ class SqlPlugin(Plugin):
             self.connect(default)
 
     def init_completer(self):
-        # self.shell.set_custom_completer(ipydb_completer)
-        # to complete things like table.* we needto 
+        """Setup ipydb sql completion."""
+        # to complete things like table.* we needto
         # change the ipydb spliiter delims:
         delims = self.shell.Completer.splitter.delims.replace('*', '')
         self.shell.Completer.splitter.delim = delims
         if self.shell.Completer.readline:
             self.shell.Completer.readline.set_completer_delims(delims)
-        for token in self.completion_starters:
+        self.completer = IpydbCompleter(self)
+        for str_key in self.completer.commands_completers.keys():
             self.shell.set_hook('complete_command',
-                                ipydb_completer, str_key=token)
+                                ipydb_complete,
+                                str_key=str_key)
 
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
@@ -199,6 +157,13 @@ class SqlPlugin(Plugin):
         except:
             pass
         return url
+
+    def get_completion_data(self):
+        """return completion data information for current connection"""
+        if not self.connected:
+            return self.completion_data._meta()
+        else:
+            return self.completion_data.get_metadata(self.engine)
 
     def connect(self, configname=None):
         """Connect to a database based upon its `nickname`.
@@ -562,148 +527,3 @@ class SqlPlugin(Plugin):
         writer = csv.writer(out)
         writer.writerow(cursor.keys())
         writer.writerows(cursor)
-
-    def interested_in(self, event):
-        """Return True if ipydb is interested in completions for line_buffer.
-
-        Args:
-            text: Current token (str) of text being completed.
-            line_buffer: str text for the whole line.
-        Returns:
-            True if ipydb should try to complete text, False otherwise.
-        """
-        line_buffer, text = event.line, event.symbol
-        if text and not line_buffer:
-            return True  # this is unfortunate...
-        else:
-            first_token = line_buffer.split()[0].lstrip('%')
-            if first_token in self.completion_starters:
-                return True
-            magic_assignment_re = r'^\s*\S+\s*=\s*%({magics})'.format(
-                magics='|'.join(self.completion_starters))
-            return re.match(magic_assignment_re, line_buffer) is not None
-
-    def complete(self, event):
-        """Return a list of "tab-completion" strings for text.
-
-        Args:
-            event: see IPython.core.completer
-        Returns:
-            list of strings which can complete the input text.
-        """
-        text, line_buffer = event.symbol, event.line
-        matches = []
-        matches_append = matches.append
-        if not self.interested_in(event):
-            return None 
-        first_token = None
-        if line_buffer:
-            first_token = line_buffer.split()[0].lstrip('%')
-        if first_token == 'connect':
-            keys = getconfigs()[1].keys()
-            self.match_lists([keys], text, matches_append)
-            return matches or None
-        if first_token == 'sqlformat':
-            self.match_lists([self.sqlformats], text, matches_append)
-            return matches or None
-        event.first_token = first_token
-        return self.complete_sql(event)
-
-    def match_lists(self, lists, text, appendfunc):
-        """Helper to substring-match text in a list-of-lists.
-
-        Args:
-            lists: a list of lists of strings.
-            text: text to substring match against lists.
-            appendfunc: callable, called with each string from
-                        and of the input lists that can complete
-                        text - appendfunc(match)
-        """
-        n = len(text)
-        for word in itertools.chain(*lists):
-            if word[:n] == text:
-                appendfunc(word)
-
-    def complete_sql(self, event):
-        """Return completion suggestions based up database schema terms.
-
-        See complete() for keyword arguments.
-
-        Args:
-            first_token: The first non-whitespace token from the front
-                         of line_buffer.
-        Returns:
-            A List of strings which can complete input text.
-        """
-        text, line_buffer, first_token = (event.symbol, event.line,
-                                          event.first_token)
-        text_until_cursor = event.text_until_cursor
-        if not self.connected:
-            return None 
-        matches = []
-        matches_append = matches.append
-        metadata = self.completion_data.get_metadata(self.engine, noisy=False)
-        dottedfields = metadata['dottedfields']
-        fields = metadata['fields']
-        tables = metadata['tables']
-        if line_buffer and len(line_buffer.split()) == 2:
-            # check for select table_name<tab>
-            first, second = line_buffer.split()
-            if first in ('select', 'insert') and second in tables:
-                cols = []
-                dcols = []
-                for f in dottedfields:
-                    tablename = f.split('.')[0]
-                    if second == tablename:
-                        dcols.append(f)
-                        cols.append(f.split('.')[1])
-                colstr = ', '.join(sorted(cols))
-                if first == 'select':
-                    return [MonkeyString(event.symbol, 
-                            '%s from %s order by %s' %
-                            (colstr, second, cols[0]))]
-                else:
-                    deflt = []
-                    types = self.completion_data.types(self.engine)
-                    restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
-                    renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
-                                           '|DOUBLE.*|FIXED.*|SHORT.*')
-                    redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
-                    for dc in sorted(dcols):
-                        typ = types[dc]
-                        tmpl = ''
-                        if redate.search(typ):
-                            tmpl = '""'  # XXX: now() or something?
-                        elif restr.search(typ):
-                            tmpl = '""'
-                        elif renumeric.search(typ):
-                            tmpl = '0'
-                        deflt.append(tmpl)
-                    return [MonkeyString(event.symbol,
-                            'into %s (%s) values (%s)' %
-                            (second, colstr, ', '.join(deflt)))]
-        if event.symbol.count('.') == 1:
-            head, tail = text.split('.')
-            if head in tables and tail == '*':
-                # tablename.*<tab> -> expand names
-                dotted = []
-                for f in dottedfields:
-                    tab, fld = f.split('.')
-                    if tab == head:
-                        dotted.append(f)
-                return [MonkeyString(event.symbol,
-                        ', '.join(sorted(dotted)))]
-            self.match_lists([dottedfields], text, matches_append)
-            if not len(matches):
-                # try for any field (following), could be
-                # table alias that is not yet defined
-                # (e.g. user typed `select foo.id, foo.<tab>...`)
-                self.match_lists(
-                    [tables], tail, lambda match: matches_append(head + '.' + match))
-                if tail == '':
-                    fields = map(lambda word: head + '.' + word, fields)
-                    matches.extend(fields)
-                return matches or None
-        self.match_lists([tables, fields, RESERVED_WORDS],
-                         text, matches_append)
-        return matches or None
