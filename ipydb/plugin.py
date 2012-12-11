@@ -6,38 +6,22 @@ The ipydb plugin.
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
-from ConfigParser import ConfigParser
 from collections import defaultdict
 import csv
-import itertools
 import fnmatch
+import itertools
 import os
 import sys
+import urlparse
 
 from IPython.core.plugin import Plugin
-from magic import SqlMagics, register_sql_aliases
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
 from termsize import termsize
-import urlparse
 
 from completion import IpydbCompleter, ipydb_complete
-from ipydb import CONFIG_FILE
-
-
-def getconfigs():
-    """Return a dictionary of saved database connection configurations."""
-    cp = ConfigParser()
-    cp.read(CONFIG_FILE)
-    configs = {}
-    default = None
-    for section in cp.sections():
-        conf = dict(cp.defaults())
-        conf.update(dict(cp.items(section)))
-        if conf.get('default'):
-            default = section
-        configs[section] = conf
-    return default, configs
+import engine
+from magic import SqlMagics, register_sql_aliases
 
 
 def sublists(l, n):
@@ -90,7 +74,7 @@ class SqlPlugin(Plugin):
         self.autocommit = True
         self.trans_ctx = None
         self.debug = False
-        default, configs = getconfigs()
+        default, configs = engine.getconfigs()
         self.init_completer()
         if default:
             self.connect(default)
@@ -166,30 +150,6 @@ class SqlPlugin(Plugin):
         else:
             return self.completion_data.get_metadata(self.engine)
 
-    def connect(self, configname=None):
-        """Connect to a database based upon its `nickname`.
-
-        See ipydb.magic.connect() for details.
-        """
-        default, configs = getconfigs()
-
-        def available():
-            print self.connect.__doc__
-            print "Available config names: %s" % (
-                ' '.join(sorted(configs.keys())))
-        if not configname:
-            available()
-        elif configname not in configs:
-            print "Config `%s` not found. " % configname
-            available()
-        else:
-            config = configs[configname]
-            connect_args = {}
-            self.connect_url(self.make_connection_url(config),
-                             connect_args=connect_args)
-            self.nickname = configname
-        return self.connected
-
     @property
     def metadata(self):
         """Get sqlalchemy.MetaData instance for current connection."""
@@ -199,6 +159,30 @@ class SqlPlugin(Plugin):
         if meta is None or self._metadata.bind != self.engine:
             self._metadata = sa.MetaData(bind=self.engine)
         return self._metadata
+
+    def connect(self, configname=None):
+        """Connect to a database based upon its `nickname`.
+
+        See ipydb.magic.connect() for details.
+        """
+        default, configs = engine.getconfigs()
+
+        def available():
+            print self.connect.__doc__
+            print "Available connection nicknames: %s" % (
+                ' '.join(sorted(configs.keys())))
+        if not configname:
+            available()
+        elif configname not in configs:
+            print "Config `%s` not found. " % configname
+            available()
+        else:
+            config = configs[configname]
+            connect_args = {}
+            engine.from_url(self.make_connection_url(config),
+                            connect_args=connect_args)
+            self.nickname = configname
+        return self.connected
 
     def connect_url(self, url, connect_args={}):
         """Connect to a database using an SqlAlchemy URL.
@@ -221,7 +205,7 @@ class SqlPlugin(Plugin):
             # not sure why we need this horrible hack -
             # I think there's some weirdness
             # with cx_oracle/oracle versions I'm using.
-            os.environ["NLS_LANG"] = ".AL32UTF8"
+            # os.environ["NLS_LANG"] = ".AL32UTF8"
             import cx_Oracle
             if not getattr(cx_Oracle, '_cxmakedsn', None):
                 setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)

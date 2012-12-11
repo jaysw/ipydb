@@ -38,13 +38,13 @@ class MetaData(object):
     def get_fields(self, table=None):
         if table:
             return [df.split('.')[1] for df in self.dottedfields
-                    if df.startswith(table)]
+                    if df.startswith(table + '.')]
         return self.fields
 
     def get_dottedfields(self, table=None):
         if table:
             return [df for df in self.dottedfields
-                    if df.startswith(table)]
+                    if df.startswith(table + '.')]
         return self.dottedfields
 
     @property

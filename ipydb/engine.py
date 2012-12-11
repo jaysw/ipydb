@@ -25,6 +25,10 @@ def getconfigs():
     return default, configs
 
 
+def get_nicknames():
+    return sorted(getconfigs().keys())
+
+
 def from_config(configname=None):
     """Connect to a database based upon its `nickname`.
 
@@ -32,13 +36,11 @@ def from_config(configname=None):
     """
     default, configs = getconfigs()
 
-    def available():
-        return ' '.join(sorted(configs.keys()))
     if not configname:
         raise ValueError('Configname is required')
     elif configname not in configs:
         raise ValueError(
-            'Config name not found. Try one of {%s}' % (available()))
+            'Config name not found. Try one of {%s}' % (get_nicknames()))
     else:
         config = configs[configname]
         connect_args = {}
