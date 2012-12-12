@@ -1,6 +1,5 @@
 """Functions to help create an SQLalchemy connection based upon
 a 'connection configuration file'"""
-import os
 from collections import defaultdict
 import urlparse
 from ConfigParser import ConfigParser
@@ -65,7 +64,8 @@ def from_url(url, connect_args={}):
         # not sure why we need this horrible hack -
         # I think there's some weirdness
         # with cx_oracle/oracle versions I'm using.
-        os.environ["NLS_LANG"] = ".AL32UTF8"
+        # XXX: disable unicode, for now
+        # os.environ["NLS_LANG"] = ".AL32UTF8"
         import cx_Oracle
         if not getattr(cx_Oracle, '_cxmakedsn', None):
             setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)

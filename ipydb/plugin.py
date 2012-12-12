@@ -6,13 +6,11 @@ The ipydb plugin.
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
-from collections import defaultdict
 import csv
 import fnmatch
 import itertools
 import os
 import sys
-import urlparse
 
 from IPython.core.plugin import Plugin
 from metadata import CompletionDataAccessor
@@ -179,8 +177,7 @@ class SqlPlugin(Plugin):
         else:
             config = configs[configname]
             connect_args = {}
-            engine.from_url(self.make_connection_url(config),
-                            connect_args=connect_args)
+            self.connect_url(engine.make_connection_url(config), connect_args)
             self.nickname = configname
         return self.connected
 
@@ -201,24 +198,7 @@ class SqlPlugin(Plugin):
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
-        if safe_url.drivername == 'oracle':
-            # not sure why we need this horrible hack -
-            # I think there's some weirdness
-            # with cx_oracle/oracle versions I'm using.
-            # os.environ["NLS_LANG"] = ".AL32UTF8"
-            import cx_Oracle
-            if not getattr(cx_Oracle, '_cxmakedsn', None):
-                setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
-
-                def newmakedsn(*args, **kw):
-                    return cx_Oracle._cxmakedsn(*args, **kw).replace(
-                        'SID', 'SERVICE_NAME')
-                cx_Oracle.makedsn = newmakedsn
-        elif safe_url.drivername == 'mysql':
-            import MySQLdb.cursors
-            # use server-side cursors by default (does this work with myISAM?)
-            connect_args = {'cursorclass': MySQLdb.cursors.SSCursor}
-        self.engine = sa.engine.create_engine(url, connect_args=connect_args)
+        self.engine = engine.from_url(url, connect_args=connect_args)
         self.connected = True
         self.nickname = None
         if self.do_reflection:
@@ -231,24 +211,6 @@ class SqlPlugin(Plugin):
         self.completion_data.flush()
         if self.connected:
             self.completion_data.get_metadata(self.engine)
-
-    def make_connection_url(self, config):
-        """
-        Returns an SqlAlchemy connection URL based upon values in config dict.
-
-        Args:
-            config: dict-like object with keys: type, username, password,
-                    host, and database.
-        Returns:
-            str URL which SqlAlchemy can use to connect to a database.
-        """
-        cfg = defaultdict(str)
-        cfg.update(config)
-        return sa.engine.url.URL(
-            drivername=cfg['type'], username=cfg['username'],
-            password=cfg['password'], host=cfg['host'],
-            database=cfg['database'],
-            query=dict(urlparse.parse_qsl(cfg['query'])))
 
     def execute(self, query):
         """Execute query against current db connection, return result set.
