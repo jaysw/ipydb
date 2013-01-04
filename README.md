@@ -69,7 +69,7 @@ Connecting to Databases
 There are two ways to connect to a database with ipydb. Directly via a connection url, using
 the `connect_url` magic fucntion, or, using a connection 'nickname' with the `connect` magic function.
 
-1\. Using `connect_url`
+###1\. Using `connect_url`
 
 You can connect to a database using an SqlAlchemy style url as follows:
 
@@ -83,7 +83,7 @@ Some examples:
 
 See the [SqlAlchemy Documentation](http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#database-urls) for further information.
 
-2\. Using `connect`
+###2\. Using `connect` and a `.db-connections` configuration file
 
 For this to work, you need to create a file called
 `.db-connections` located in your home directory.
