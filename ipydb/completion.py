@@ -15,7 +15,8 @@ from ipydb.magic import SQL_ALIASES
 
 
 def get_ipydb(ipython):
-        return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
+    """Return the active ipydb instance."""
+    return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
 
 
 def ipydb_complete(self, event):
