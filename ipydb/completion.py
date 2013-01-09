@@ -14,6 +14,10 @@ from ipydb.engine import getconfigs
 from ipydb.magic import SQL_ALIASES
 
 
+def get_ipydb(ipython):
+        return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
+
+
 def ipydb_complete(self, event):
     """Returns a list of suggested completions for event.symbol.
 
@@ -26,8 +30,8 @@ def ipydb_complete(self, event):
         or None to propagate completion to other handlers or
         return [] to suppress further completion
     """
+    sqlplugin = get_ipydb(self)
     try:
-        sqlplugin = self.plugin_manager.get_plugin(PLUGIN_NAME)
         if sqlplugin:
             if sqlplugin.debug:
                 print 'complete: sym=[%s] line=[%s] tuc=[%s]' % (
@@ -38,6 +42,9 @@ def ipydb_complete(self, event):
             return completions
     except Exception, e:
         print repr(e)
+        if sqlplugin and sqlplugin.debug:
+            import traceback
+            traceback.print_exc()
     return None
 
 
@@ -90,7 +97,7 @@ class IpydbCompleter(object):
         self.commands_completers = {
             'connect': self.connection_nickname,
             'sqlformat': self.sql_format,
-            'what_references': self.dotted_expression,
+            'what_references': self.sql_statement,
             'show_fields': self.sql_statement,
             'show_tables': self.sql_statement,
             'sql': self.sql_statement
