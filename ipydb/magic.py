@@ -122,7 +122,7 @@ class SqlMagics(Magics):
             results = %sql -r select first_name from employees
             for row in results:
                 do_things_with(row.first_name)
-        
+
         Shortcut Aliases to %sql:
             ipydb defines some 'short-cut' aliases which call %sql.
             Aliases have been added for:
@@ -133,9 +133,9 @@ class SqlMagics(Magics):
 
                 select * from my_table
 
-            Which results in: 
+            Which results in:
 
-                %sql select * from my_table 
+                %sql select * from my_table
 
         """
         args = parse_argstring(self.sql, args)
@@ -269,3 +269,10 @@ class SqlMagics(Magics):
         Delete and re-create ipydb's sqlite information store.
         """
         self.ipydb.flush_metadata()
+
+    @line_magic
+    def rereflect(self, arg):
+        """Force re-loading of completion metadata for
+        the current connection"""
+        self.ipydb.completion_data.get_metadata(
+            self.ipydb.engine, force=True)

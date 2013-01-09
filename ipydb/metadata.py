@@ -113,13 +113,13 @@ class CompletionDataAccessor(object):
         return locals()
     sa_metadata = property(**sa_metadata())
 
-    def get_metadata(self, db, noisy=True):
+    def get_metadata(self, db, noisy=True, force=False):
         db_key = self.get_db_key(db.url)
         metadata = self.metadata[db_key]
         if metadata['isempty']:  # XXX: what if schema exists, but is empty?!
             self.read(db_key)  # XXX is this slow? use self.pool.apply_async?
         now = datetime.datetime.now()
-        if (metadata['isempty'] or (now - metadata['created']) >
+        if (force or metadata['isempty'] or (now - metadata['created']) >
                 timedelta(seconds=CACHE_MAX_AGE)) \
                 and not metadata['reflecting']:
             if noisy:
