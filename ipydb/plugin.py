@@ -17,7 +17,7 @@ from metadata import CompletionDataAccessor
 import sqlalchemy as sa
 from termsize import termsize
 
-from completion import IpydbCompleter, ipydb_complete
+from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
 
@@ -91,6 +91,9 @@ class SqlPlugin(Plugin):
             self.shell.set_hook('complete_command',
                                 ipydb_complete,
                                 str_key=str_key)
+        # add a regex dispatch for assignments
+        self.shell.set_hook('complete_command',
+                            ipydb_complete, re_key=reassignment)
 
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""

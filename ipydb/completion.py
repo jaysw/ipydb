@@ -14,6 +14,9 @@ from ipydb.engine import getconfigs
 from ipydb.magic import SQL_ALIASES
 
 
+reassignment = re.compile(r'^\w+\s*=\s*%((\w+).*)')
+
+
 def get_ipydb(ipython):
     """Return the active ipydb instance."""
     return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
@@ -114,11 +117,13 @@ class IpydbCompleter(object):
                 list of strings which can complete event.symbol
         """
         key = ev.command
+        match_assign = reassignment.search(ev.line)
+        if match_assign:
+            key = match_assign.group(2)
         if ev.command.startswith('%'):
             key = ev.command[1:]
         func = self.commands_completers.get(key)
         if func is None:
-            print "Warning: no completer for:", ev.command
             return None
         return func(ev)
 
