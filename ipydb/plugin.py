@@ -43,6 +43,17 @@ class FakedResult(object):
         return self.headings
 
 
+class PivotResultSet(object):
+    def __init__(self, rs):
+        self.rs = rs
+
+    def __iter__(self):
+        return itertools.chain.from_iterable(r.items() + [((' '), (' '))] for r in self.rs)
+
+    def keys(self):
+        return ['Field', 'Value']
+
+
 class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 

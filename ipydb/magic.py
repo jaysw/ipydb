@@ -13,6 +13,7 @@ from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
 from IPython.utils.process import arg_split
 
+
 SQL_ALIASES = 'select insert update delete create alter drop'.split()
 
 
@@ -98,6 +99,8 @@ class SqlMagics(Magics):
     @magic_arguments()
     @argument('-r', '--return', dest='ret', action='store_true',
               help='Return a resultset instead of printing the results')
+    @argument('-s', '--single', dest='single', action='store_true',
+              help='View in "single record" mode')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
@@ -146,7 +149,11 @@ class SqlMagics(Magics):
         if args.ret:
             return result
         if result and result.returns_rows:
-            self.ipydb.render_result(result)
+            from ipydb.plugin import PivotResultSet  # XXX: circular imports
+            if args.single:
+                self.ipydb.render_result(PivotResultSet(result))
+            else:
+                self.ipydb.render_result(result)
     sql.__description__ = 'Run an sql statement against ' \
         'the current ipydb connection.'
 
