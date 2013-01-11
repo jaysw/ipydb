@@ -99,7 +99,7 @@ class SqlMagics(Magics):
     @magic_arguments()
     @argument('-r', '--return', dest='ret', action='store_true',
               help='Return a resultset instead of printing the results')
-    @argument('-s', '--single', dest='single', action='store_true',
+    @argument('-p', '--pivot', dest='single', action='store_true',
               help='View in "single record" mode')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
@@ -151,7 +151,8 @@ class SqlMagics(Magics):
         if result and result.returns_rows:
             from ipydb.plugin import PivotResultSet  # XXX: circular imports
             if args.single:
-                self.ipydb.render_result(PivotResultSet(result))
+                self.ipydb.render_result(PivotResultSet(result),
+                                         paginate=False)
             else:
                 self.ipydb.render_result(result)
     sql.__description__ = 'Run an sql statement against ' \

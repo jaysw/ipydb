@@ -48,7 +48,7 @@ class PivotResultSet(object):
         self.rs = rs
 
     def __iter__(self):
-        return itertools.chain.from_iterable(r.items() + [((' '), (' '))] for r in self.rs)
+        return (r.items() for r in self.rs)
 
     def keys(self):
         return ['Field', 'Value']
@@ -406,7 +406,7 @@ class SqlPlugin(Plugin):
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
 
-    def render_result(self, cursor):
+    def render_result(self, cursor, paginate=True):
         """Render a result set and pipe through less.
 
         Args:
@@ -419,7 +419,8 @@ class SqlPlugin(Plugin):
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
-                self.format_result_pretty(cursor, out=out)
+                self.format_result_pretty(cursor, out=out,
+                                          paginate=paginate)
         except IOError, msg:
             if msg.args == (32, 'Broken pipe'):  # user quit
                 pass
@@ -428,7 +429,7 @@ class SqlPlugin(Plugin):
         finally:
             out.close()
 
-    def format_result_pretty(self, cursor, out=sys.stdout):
+    def format_result_pretty(self, cursor, out=sys.stdout, paginate=True):
         """Render an SQL result set as an ascii-table.
 
         Renders an SQL result set to `out`, some file-like object.
@@ -440,10 +441,26 @@ class SqlPlugin(Plugin):
             out: file-like object.
 
         """
+
+        def heading_line(sizes):
+            for size in sizes:
+                out.write('+' + '-' * (size + 2))
+            out.write('+\n')
+
+        def draw_headings(headings, sizes):
+            heading_line(sizes)
+            for idx, size in enumerate(sizes):
+                fmt = '| %%-%is ' % size
+                out.write((fmt % headings[idx]))
+            out.write('|\n')
+            heading_line(sizes)
+
         cols, lines = termsize()
         headings = cursor.keys()
         heading_sizes = map(lambda x: len(x), headings)
-        for screenrows in isublists(cursor, lines - 4):
+        if paginate:
+            cursor = isublists(cursor, lines - 4)
+        for screenrows in cursor:
             sizes = heading_sizes[:]
             for row in screenrows:
                 if row is None:
@@ -453,16 +470,7 @@ class SqlPlugin(Plugin):
                         value = str(value)
                     size = max(sizes[idx], len(value))
                     sizes[idx] = min(size, self.max_fieldsize)
-            for size in sizes:
-                out.write('+' + '-' * (size + 2))
-            out.write('+\n')
-            for idx, size in enumerate(sizes):
-                fmt = '| %%-%is ' % size
-                out.write((fmt % headings[idx]))
-            out.write('|\n')
-            for size in sizes:
-                out.write('+' + '-' * (size + 2))
-            out.write('+\n')
+            draw_headings(headings, sizes)
             for rw in screenrows:
                 if rw is None:
                     break  # from isublists impl
@@ -477,6 +485,9 @@ class SqlPlugin(Plugin):
                     value = value.replace('\r', '^').replace('\t', ' ')
                     out.write((fmt % value))
                 out.write('|\n')
+            if not paginate:
+                heading_line(sizes)
+                out.write('\n')
 
     def format_result_csv(self, cursor, out=sys.stdout):
         """Render an sql result set in CSV format.
