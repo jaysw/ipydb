@@ -2,17 +2,22 @@
 a 'connection configuration file'"""
 from collections import defaultdict
 import urlparse
-from ConfigParser import ConfigParser
+from ConfigParser import ConfigParser, DuplicateSectionError
 
 import sqlalchemy as sa
 
 from ipydb import CONFIG_FILE
 
 
-def getconfigs():
-    """Return a dictionary of saved database connection configurations."""
+def getconfigparser():
     cp = ConfigParser()
     cp.read(CONFIG_FILE)
+    return cp
+
+
+def getconfigs():
+    """Return a dictionary of saved database connection configurations."""
+    cp = getconfigparser()
     configs = {}
     default = None
     for section in cp.sections():
@@ -92,10 +97,28 @@ def make_connection_url(config):
     Returns:
         str URL which SqlAlchemy can use to connect to a database.
     """
-    cfg = defaultdict(str)
-    cfg.update(config)
     return sa.engine.url.URL(
-        drivername=cfg['type'], username=cfg['username'],
-        password=cfg['password'], host=cfg['host'],
-        database=cfg['database'],
-        query=dict(urlparse.parse_qsl(cfg['query'])))
+        drivername=config.get('type'), username=config.get('username'),
+        password=config.get('password'), host=config.get('host'),
+        port=config.get('port') or None,
+        database=config.get('database'),
+        query=dict(urlparse.parse_qsl(config.get('query', ''))))
+
+
+def save_connection(name, engine):
+    """Saves a connection configuration to ~/.db-connections."""
+    cp = getconfigparser()
+    try:
+        cp.add_section(name)
+    except DuplicateSectionError:
+        pass
+    url = engine.url
+    cp.set(name, 'type', url.drivername or '')
+    cp.set(name, 'username', url.username or '')
+    cp.set(name, 'password', url.password or '')
+    cp.set(name, 'host', url.host or '')
+    cp.set(name, 'database', url.database or '')
+    cp.set(name, 'port', url.port or '')
+    cp.set(name, 'query', url.query or '')
+    with open(CONFIG_FILE, 'w') as fout:
+        cp.write(fout)

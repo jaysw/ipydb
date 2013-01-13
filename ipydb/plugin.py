@@ -102,7 +102,7 @@ class SqlPlugin(Plugin):
             self.shell.set_hook('complete_command',
                                 ipydb_complete,
                                 str_key=str_key)
-        # add a regex dispatch for assignments
+        # add a regex dispatch for assignments: res = %select -r ...
         self.shell.set_hook('complete_command',
                             ipydb_complete, re_key=reassignment)
 
@@ -116,14 +116,16 @@ class SqlPlugin(Plugin):
         """ Return current host/db for use in ipython's prompt PS1. """
         if not self.connected:
             return ''
+        if self.nickname:
+            return " " + self.nickname
         host = self.engine.url.host
         if '.' in host:
             host = host.split('.')[0]
         host = host[:15]  # don't like long hostnames
-        db = self.engine.url.database[:15]
+        db = '?'
+        if self.engine.url.database:
+            db = self.engine.url.database[:15]
         url = "%s/%s" % (host, db)
-        if self.nickname:
-            url = self.nickname
         return " " + url
 
     def get_transaction_ps1(self, *args, **kw):
@@ -171,6 +173,10 @@ class SqlPlugin(Plugin):
         if meta is None or self._metadata.bind != self.engine:
             self._metadata = sa.MetaData(bind=self.engine)
         return self._metadata
+
+    def save_connection(self, configname):
+        """Save the current connection to ~/.db-connections."""
+        engine.save_connection(configname, self.engine)
 
     def connect(self, configname=None):
         """Connect to a database based upon its `nickname`.

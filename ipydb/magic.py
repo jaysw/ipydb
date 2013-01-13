@@ -284,3 +284,24 @@ class SqlMagics(Magics):
         the current connection"""
         self.ipydb.completion_data.get_metadata(
             self.ipydb.engine, force=True)
+
+    @line_magic
+    def save_connection(self, arg):
+        """Save current connection to ~/.db-connections file.
+
+        Usage: %save_connection NICKNAME
+
+        After you have saved the connection, you can use the following to
+        connect:
+            %connect NICKNAME
+        Note: if a configuration exists for NICKNAME it will be overwritten
+        with the current engine's connection parameters.
+        """
+        if not self.ipydb.connected:
+            print self.ipydb.not_connected_message
+            return
+        if not len(arg.strip()):
+            print "Usage: %save_connection NICKNAME. \n\n" + \
+                "Please supply a NICKNAME to store the connection against."
+            return
+        self.ipydb.save_connection(arg)
