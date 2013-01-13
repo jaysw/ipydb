@@ -6,6 +6,7 @@ The ipydb plugin.
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+from ConfigParser import DuplicateSectionError
 import csv
 import fnmatch
 import itertools
@@ -176,7 +177,18 @@ class SqlPlugin(Plugin):
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
-        engine.save_connection(configname, self.engine)
+        try:
+            engine.save_connection(configname, self.engine)
+        except DuplicateSectionError:
+            over = self.shell.ask_yes_no(
+                '`%s` exists, Overwrite (y/n)?' % configname)
+            if over:
+                engine.save_connection(
+                    configname, self.engine, overwrite=True)
+            else:
+                print "Save aborted"
+                return
+        print "`%s` saved to ~/.db-connections" % (configname,)
 
     def connect(self, configname=None):
         """Connect to a database based upon its `nickname`.

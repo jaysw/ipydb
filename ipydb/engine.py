@@ -105,13 +105,16 @@ def make_connection_url(config):
         query=dict(urlparse.parse_qsl(config.get('query', ''))))
 
 
-def save_connection(name, engine):
+def save_connection(name, engine, overwrite=False):
     """Saves a connection configuration to ~/.db-connections."""
     cp = getconfigparser()
     try:
         cp.add_section(name)
     except DuplicateSectionError:
-        pass
+        if overwrite:
+            pass
+        else:
+            raise
     url = engine.url
     cp.set(name, 'type', url.drivername or '')
     cp.set(name, 'username', url.username or '')
