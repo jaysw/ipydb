@@ -29,7 +29,7 @@ def create_sql_alias(alias, magic_manager, sqlmagics):
         """Alias to %sql"""
         opts, args = [], []
         for chunk in arg_split(line):
-            if chunk.startswith('-'):
+            if chunk.startswith('-') and len(chunk) > 1:
                 opts.append(chunk)
             else:
                 args.append(chunk)
