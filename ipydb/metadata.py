@@ -160,6 +160,7 @@ class CompletionDataAccessor(object):
             self.metadata[db_key]['fields'].add(fieldname)
             self.metadata[db_key]['dottedfields'].add(dottedname)
             self.metadata[db_key]['types'][dottedname] = str(col.type)
+        self.write_table(t)
 
     def get_db_key(self, url):
         '''minimal unique key for describing a db connection'''
@@ -168,12 +169,17 @@ class CompletionDataAccessor(object):
 
     def read(self, db_key):
         with sqlite3.connect(self.dbfile) as db:
+            fks = {}
             result = db.execute("""
                 select
                     t.db_key,
                     t.name as tablename,
                     f.name as fieldname,
-                    f.type as type
+                    f.type as type,
+                    constraint_name,
+                    position_in_constraint,
+                    referenced_table,
+                    referenced_column,
                 from dbtable t inner join dbfield f
                     on f.table_id = t.id
                 where
@@ -186,6 +192,23 @@ class CompletionDataAccessor(object):
                 self.metadata[db_key]['dottedfields'].add(
                     '%s.%s' % (r[1], r[2]))
                 self.metadata[db_key]['types']['%s.%s' % (r[1], r[2])] = r[3]
+                if r[4]:
+                    constraint_name = r[4]
+                    if constraint_name not in fks:
+                        fks[constraint_name] = {
+                            'table': r[1],
+                            'columns': [],
+                            'referenced_table': r[6],
+                            'referenced_columns': []
+                        }
+                    fks[constraint_name]['columns'].append(r[2])
+                    fks[constraint_name]['references'].append(r[7])
+            all_fks = []
+            for name, dct in fks.iteriterms():
+                all_fks.append((dct['table'], dct['columns'],
+                               dct['referenced_table'],
+                               dct['referenced_columns']))
+            self.metadata[db_key]['foreign_keys'] = all_fks
             result = db.execute("select max(created) as created from dbtable "
                                 "where db_key = :db_key",
                                 dict(db_key=db_key)).fetchone()
@@ -218,6 +241,10 @@ class CompletionDataAccessor(object):
                         on delete cascade
                         on update cascade,
                     name text not null,
+                    constraint_name text,
+                    position_in_constraint int,
+                    referenced_table text,
+                    referenced_column text,
                     type text,
                     constraint db_field_unique
                         unique (table_id, name)
@@ -306,3 +333,12 @@ class CompletionDataAccessor(object):
                     table_id = :table_id
                     and name = :field""",
                 dict(table_id=table_id, field=field, type=type_))
+
+    def write_table(self, table):
+        """
+        Writes information about a table to an sqlite db store.
+
+        Args:
+            table: an sa.Table instance
+        """
+        pass  # TODO: code me!
