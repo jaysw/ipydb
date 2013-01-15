@@ -199,9 +199,9 @@ class IpydbCompleter(object):
         """Returns a default value which can be used for the SQL type typ."""
         value = ''
         if self.redate.search(typ):
-            value = '""'  # XXX: now() or something?
+            value = "''"  # XXX: now() or something?
         elif self.restr.search(typ):
-            value = '""'
+            value = "''"
         elif self.renumeric.search(typ):
-            value = '0'
+            value = "0"
         return value
