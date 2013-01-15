@@ -50,6 +50,7 @@ def register_sql_aliases(magic_manager, sqlmagics):
         magic_func = create_sql_alias(alias, magic_manager, sqlmagics)
         magic_func.func_name = alias
         magic_manager.register_function(magic_func, 'line', alias)
+        magic_manager.register_function(magic_func, 'cell', alias)
 
 
 @magics_class
