@@ -49,7 +49,11 @@ class PivotResultSet(object):
         self.rs = rs
 
     def __iter__(self):
-        return (r.items() for r in self.rs)
+        # Note: here we 'ovewrite' ambiguous / duplicate keys
+        # is this a bad thing? probably not?
+        # r.items() throws exceptions from SA if there are ambiguous
+        # columns in the select statement.
+        return (zip(r.keys(), r.values()) for r in self.rs)
 
     def keys(self):
         return ['Field', 'Value']
