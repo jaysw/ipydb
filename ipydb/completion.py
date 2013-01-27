@@ -148,13 +148,88 @@ class IpydbCompleter(object):
         if len(chunks) == 2:
             first, second = chunks
             starters = 'select insert'.split()  # TODO: delete, update
-            if first in starters and second in metadata.tables:
+            if first in starters and (second in metadata.tables or
+                                      self.is_valid_join_expression(second)):
                 return self.expand_two_token_sql(ev)
         if ev.symbol.count('.') == 1:  # something.other
             return self.dotted_expression(ev)
+        if '**' in ev.symbol:  # special join syntax t1**t2
+            return self.join_shortcut(ev)
         # simple single-token completion: foo<tab>
         return match_lists([metadata.tables, metadata.fields, RESERVED_WORDS],
                            ev.symbol)
+
+    def is_valid_join_expression(self, expr):
+        metadata = self.ipydb.get_completion_data()
+        if '**' not in expr:
+            return False
+        tables = expr.split('**')
+        valid = True
+        while len(tables) > 1:
+            tail = tables.pop()
+            jointables = metadata.tables_referencing(tail)
+            valid = bool(set(jointables) & set(tables))
+            if not valid:
+                break
+        return valid
+
+    def expand_join_expression(self, expr):
+        metadata = self.ipydb.get_completion_data()
+        if not self.is_valid_join_expression(expr):
+            return expr
+        tables = expr.split('**')
+        ret = ''
+        while len(tables) > 1:
+            tail = tables.pop()
+            # try to join to the other tables:
+            for tbl in tables:
+                joins = metadata.get_joins(tbl, tail)
+                if joins:
+                    join = joins[0]  # XXX: take a punt
+                    joinstr = 'inner join %s on ' % (tail)
+                    sep = ''
+                    for idx, col in enumerate(join.columns):
+                        joinstr += sep + '%s.%s = %s.%s' % (
+                            join.table, col, join.reftable,
+                            join.refcolumns[idx])
+                        sep = ' and '
+                    ret = joinstr + ' ' + ret
+        ret = tables[0] + ' ' + ret
+        return ret
+
+    def join_shortcut(self, ev):
+        metadata = self.ipydb.get_completion_data()
+
+        def _all_joining_tables(tables):
+            ret = set()
+            for tablename in tables:
+                for reftable in metadata.tables_referencing(tablename):
+                    ret.add(reftable)
+            return ret
+
+        if ev.symbol.endswith('**'):  # incomplete stmt: t1**t2**<tab>
+            matches = []
+            for t in _all_joining_tables(ev.symbol.split('**')):
+                matches.append(MonkeyString(ev.symbol, ev.symbol + t))
+            return matches
+        else:
+            head, last = ev.symbol.rsplit('**', 1)
+            if last in metadata.tables:
+                # XXX: for now, just experiment with 1 join:
+                if head in metadata.tables and last in metadata.tables:
+                    ret = self.expand_join_expression(ev.symbol)
+                    if ret != ev.symbol:
+                        return [MonkeyString(ev.symbol, ret)]
+                    else:
+                        return []  # nothing found
+
+            else:  # part of a table name
+                matches = []
+                for tab in _all_joining_tables(ev.symbol.split('**')):
+                    if tab.startswith(last):
+                        matches.append('%s**%s' % (head, tab))
+                return matches
+        return []
 
     def dotted_expression(self, ev, expansion=True):
         """Return completions for head.tail<tab>"""
@@ -179,12 +254,16 @@ class IpydbCompleter(object):
         and for insert 'tablename<tab>'"""
         metadata = self.ipydb.get_completion_data()
         first, tablename = ev.line.split()
-        cols = metadata.get_fields(table=tablename)
-        colstr = ', '.join(sorted(cols))
         if first == 'select':
-            return [MonkeyString(ev.symbol, '%s from %s order by %s' %
-                    (colstr, tablename, cols[0]))]
+            colstr = ', '.join('%s.*' % t for t in tablename.split('**'))
+            tablename = self.expand_join_expression(tablename)
+            return [MonkeyString(ev.symbol, '%s from %s' %
+                    (colstr, tablename))]
         elif first == 'insert':
+            # XXX: make sure that tablename is a tablename here!
+            # and not a t1**t2**t3
+            cols = metadata.get_fields(table=tablename)
+            colstr = ', '.join(sorted(cols))
             dcols = metadata.get_dottedfields(table=tablename)
             deflt = []
             types = metadata.types
