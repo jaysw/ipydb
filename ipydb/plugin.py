@@ -23,15 +23,12 @@ import engine
 from magic import SqlMagics, register_sql_aliases
 
 
-def sublists(l, n):
-    return (l[i:i + n] for i in range(0, len(l), n))
-
-
 def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
 class FakedResult(object):
+    """Utility for making an iterable look like an sqlalchemy ResultProxy."""
 
     def __init__(self, items, headings):
         self.items = items
@@ -45,6 +42,8 @@ class FakedResult(object):
 
 
 class PivotResultSet(object):
+    """Pivot a result set into an iterable of (fieldname, value)."""
+
     def __init__(self, rs):
         self.rs = rs
 
@@ -95,8 +94,8 @@ class SqlPlugin(Plugin):
 
     def init_completer(self):
         """Setup ipydb sql completion."""
-        # to complete things like table.* we needto
-        # change the ipydb spliiter delims:
+        # to complete things like table.* we need to
+        # change the ipydb spliter delims:
         delims = self.shell.Completer.splitter.delims.replace('*', '')
         self.shell.Completer.splitter.delim = delims
         if self.shell.Completer.readline:
@@ -238,7 +237,7 @@ class SqlPlugin(Plugin):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_data.get_metadata(self.engine)
+            self.completion_data.get_metadata(self.engine, noisy=True)
         return True
 
     def flush_metadata(self):

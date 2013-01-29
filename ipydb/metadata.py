@@ -161,7 +161,7 @@ class CompletionDataAccessor(object):
         return locals()
     sa_metadata = property(**sa_metadata())
 
-    def get_metadata(self, db, noisy=True, force=False):
+    def get_metadata(self, db, noisy=False, force=False):
         db_key = self.get_db_key(db.url)
         metadata = self.metadata[db_key]
         if metadata.isempty:  # XXX: what if schema exists, but is empty?!

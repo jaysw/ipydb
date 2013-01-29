@@ -213,22 +213,17 @@ class IpydbCompleter(object):
                 matches.append(MonkeyString(ev.symbol, ev.symbol + t))
             return matches
         else:
-            head, last = ev.symbol.rsplit('**', 1)
-            if last in metadata.tables:
-                # XXX: for now, just experiment with 1 join:
-                if head in metadata.tables and last in metadata.tables:
-                    ret = self.expand_join_expression(ev.symbol)
-                    if ret != ev.symbol:
-                        return [MonkeyString(ev.symbol, ret)]
-                    else:
-                        return []  # nothing found
+            joinexpr = self.expand_join_expression(ev.symbol)
+            if joinexpr != ev.symbol:  # expand succeeded
+                return [MonkeyString(ev.symbol, joinexpr)]
+            # assume that end token is partial table name:
+            bits = ev.symbol.split('**')
+            toke = bits.pop()
+            start = '**'.join(bits)
+            all_joins = _all_joining_tables(bits)
+            return [MonkeyString(ev.symbol,  start + '**' + t)
+                    for t in all_joins if t.startswith(toke)]
 
-            else:  # part of a table name
-                matches = []
-                for tab in _all_joining_tables(ev.symbol.split('**')):
-                    if tab.startswith(last):
-                        matches.append('%s**%s' % (head, tab))
-                return matches
         return []
 
     def dotted_expression(self, ev, expansion=True):

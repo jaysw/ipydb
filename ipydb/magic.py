@@ -284,7 +284,7 @@ class SqlMagics(Magics):
         """Force re-loading of completion metadata for
         the current connection"""
         self.ipydb.completion_data.get_metadata(
-            self.ipydb.engine, force=True)
+            self.ipydb.engine, force=True, noisy=True)
 
     @line_magic
     def save_connection(self, arg):
