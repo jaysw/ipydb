@@ -182,7 +182,7 @@ class IpydbCompleter(object):
         while len(tables) > 1:
             tail = tables.pop()
             # try to join to the other tables:
-            for tbl in tables:
+            for tbl in reversed(tables):
                 joins = metadata.get_joins(tbl, tail)
                 if joins:
                     join = joins[0]  # XXX: take a punt
@@ -194,6 +194,7 @@ class IpydbCompleter(object):
                             join.refcolumns[idx])
                         sep = ' and '
                     ret = joinstr + ' ' + ret
+                    break
         ret = tables[0] + ' ' + ret
         return ret
 
