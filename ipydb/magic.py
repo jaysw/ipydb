@@ -139,7 +139,7 @@ class SqlMagics(Magics):
 
                 {select, insert, update, delete, create, alter, drop}
 
-            This is so that you can write 'natural' SQL statements like so:
+            Using aliases, you can write 'natural' SQL statements like so:
 
                 select * from my_table
 
