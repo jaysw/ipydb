@@ -248,15 +248,21 @@ class SqlPlugin(Plugin):
         if self.connected:
             self.completion_data.get_metadata(self.engine)
 
-    def execute(self, query):
+    def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
 
         Args:
-            query: string query to execute
+            query: String query to execute.
+            args: Dictionary of bind parameters for the query.
+            multiargs: Collection/iterable of dictionaries of bind parameters.
         Returns:
             Sqlalchemy's DB-API cursor-like object.
         """
         result = None
+        if params is None:
+            params = {}
+        if multiparams is None:
+            multiparams = []
         if not self.connected:
             print self.not_connected_message
         else:
@@ -268,7 +274,7 @@ class SqlPlugin(Plugin):
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
                 conn = self.trans_ctx.conn.execute
             try:
-                result = conn.execute(query)
+                result = conn.execute(query, *multiparams, **params)
             except Exception, e:
                 if self.debug:
                     raise
