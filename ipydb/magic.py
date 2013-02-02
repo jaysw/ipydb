@@ -12,7 +12,7 @@ from IPython.core.magic import Magics, magics_class, \
 from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
 from IPython.utils.process import arg_split
-
+import sqlparse
 
 SQL_ALIASES = 'select insert update delete create alter drop'.split()
 
@@ -102,6 +102,12 @@ class SqlMagics(Magics):
               help='Return a resultset instead of printing the results')
     @argument('-p', '--pivot', dest='single', action='store_true',
               help='View in "single record" mode')
+    @argument('-m', '--multiparams', dest='multiparams', default=None,
+              help='A collection of dictionaries of bind parameters')
+    @argument('-a', '--params', dest='params', default=None,
+              help='A dictionary of bind parameters for the sql statement')
+    @argument('-f', '--format', action='store_true',
+              help='pretty-print sql statement and exit')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
@@ -133,7 +139,7 @@ class SqlMagics(Magics):
 
                 {select, insert, update, delete, create, alter, drop}
 
-            This is so that you can write 'natural' SQL statements like so:
+            Using aliases, you can write 'natural' SQL statements like so:
 
                 select * from my_table
 
@@ -143,10 +149,24 @@ class SqlMagics(Magics):
 
         """
         args = parse_argstring(self.sql, args)
+        params = None
+        multiparams = None
         sql = ' '.join(args.sql_statement)
         if cell is not None:
             sql += '\n' + cell
-        result = self.ipydb.execute(sql)
+        if args.format:
+            sqlstr = sqlparse.format(sql, reindent=True)
+            if args.ret:
+                return sqlstr
+            else:
+                print "\n%s" % sqlstr
+            return
+        if args.params:
+            params = self.shell.user_ns.get(args.params, {})
+        if args.multiparams:
+            multiparams = self.shell.user_ns.get(args.multiparams, [])
+        result = self.ipydb.execute(sql, params=params,
+                                    multiparams=multiparams)
         if args.ret:
             return result
         if result and result.returns_rows:
