@@ -1,4 +1,33 @@
+"""Helpers and utils."""
+
+import time
+
+
+class timer(object):
+    """Timer Context Manager.
+
+    Usage:
+        with(timer("doing something")):
+            time.sleep(10)
+    """
+    def __init__(self, name='timer'):
+        self.name = name
+
+    def __enter__(self):
+        self.start = time.time()
+
+    def __exit__(self, ty, val, tb):
+        end = time.time()
+        print("%s : %0.3f ms" % (self.name, (end - self.start) * 1000))
+        return False
+
+
 def termsize():
+    """Try to figure out the size of the current terminal.
+
+    Returns:
+        Size of the terminal as a tuple: (height, width).
+    """
     import os
     env = os.environ
 
