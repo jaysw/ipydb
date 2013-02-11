@@ -16,7 +16,7 @@ import sys
 from IPython.core.plugin import Plugin
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
-from termsize import termsize
+from utils import termsize
 
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
