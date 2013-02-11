@@ -272,7 +272,7 @@ class SqlPlugin(Plugin):
                 query = 'select * from %s' % bits[1]
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
-                conn = self.trans_ctx.conn.execute
+                conn = self.trans_ctx.conn
             try:
                 result = conn.execute(query, *multiparams, **params)
             except Exception, e:
