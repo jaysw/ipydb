@@ -71,6 +71,16 @@ class MetaData(object):
                 refs.add(fk.table)
         return refs
 
+    def fields_referencing(self, table, field=None):
+        refs = []
+        for fk in self.foreign_keys:
+            if table == fk.reftable:
+                if field and field in fk.refcolumns:
+                    refs.append(fk)
+                elif not field:
+                    refs.append(fk)
+        return refs
+
     def get_joins(self, t1, t2):
         """Return foreign_keys that can join two tables.
 

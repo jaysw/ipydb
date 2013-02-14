@@ -397,38 +397,15 @@ class SqlPlugin(Plugin):
         bits = arg.split('.', 1)
         tablename = bits[0]
         fieldname = bits[1] if len(bits) > 1 else ''
-        field = table = None
-        meta = self.completion_data.sa_metadata
-        meta.reflect()  # XXX: can be very slow! TODO: don't do this
-        for tname, tbl in meta.tables.iteritems():
-            if tbl.name.lower() == tablename.lower():
-                table = tbl
-                break
-        if table is None:
-            print "Could not find table `%s`" % (tablename,)
-            return
-        if fieldname:
-            for col in table.columns:
-                if col.name == fieldname:
-                    field = col
-                    break
-        if fieldname and field is None:
-            print "Could not find `%s.%s`" % (tablename, fieldname)
-            return
+        fks = self.get_completion_data().fields_referencing(
+            tablename, fieldname)
         refs = []
-        for tname, tbl in meta.tables.iteritems():
-            for fk in tbl.foreign_keys:
-                if ((field is not None and fk.references(table) and
-                        bool(fk.get_referent(table) == field)) or
-                        (field is None and fk.references(table))):
-                    sourcefield = "%s.%s" % (
-                        fk.parent.table.name, fk.parent.name)
-                    refs.append((sourcefield, fk.target_fullname))
-        if refs:
-            maxleft = max(map(lambda x: len(x[0]), refs)) + 2
-            fmt = u"%%-%ss references %%s" % (maxleft,)
-        for ref in sorted(refs, key=lambda x: x[0]):
-            print fmt % ref
+        for fk in fks:
+            refs.append(
+                '%s(%s) references %s(%s)' % (
+                fk.table, ','.join(fk.columns),
+                fk.reftable, ','.join(fk.refcolumns)))
+        print '\n'.join(refs)
 
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
