@@ -85,7 +85,7 @@ class SqlPlugin(Plugin):
         self.connected = False
         self.engine = None
         self.nickname = None
-        self.autocommit = True
+        self.autocommit = False
         self.trans_ctx = None
         self.debug = False
         default, configs = engine.getconfigs()
@@ -270,6 +270,9 @@ class SqlPlugin(Plugin):
             if len(bits) == 2 and bits[0].lower() == 'select' and \
                     bits[1] in self.completion_data.tables(self.engine):
                 query = 'select * from %s' % bits[1]
+            elif bits[0].lower() in 'insert update delete'.split() \
+                    and not self.trans_ctx and not self.autocommit:
+                self.begin()
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
                 conn = self.trans_ctx.conn
