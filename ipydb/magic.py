@@ -186,6 +186,20 @@ class SqlMagics(Magics):
     sql.__description__ = 'Run an sql statement against ' \
         'the current ipydb connection.'
 
+    @magic_arguments()
+    @argument('-d', '--delimiter', action='store',
+              help='Statement delimiter. Must be on a new line by itself')
+    @argument('file', action='store', help='SQL script file')
+    @line_magic
+    def run_sql_script(self, param=''):
+        """Run delimited SQL statements from a file.
+
+        SQL statements in the input file are expected to be delimited
+        by '/' by itself on a new line. This can be overidden with the
+        -d option.
+        """
+        pass  # TODO:
+
     @line_magic
     def show_tables(self, param=''):
         """Show a list of tables for the current db connection.
