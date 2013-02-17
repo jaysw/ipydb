@@ -434,7 +434,7 @@ class SqlPlugin(Plugin):
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
 
-    def render_result(self, cursor, paginate=True):
+    def render_result(self, cursor, paginate=True, filepath=None):
         """Render a result set and pipe through less.
 
         Args:
@@ -443,7 +443,10 @@ class SqlPlugin(Plugin):
                     headings for the tuples.
         """
         try:
-            out = self.get_pager()
+            if filepath:
+                out = open(filepath, 'w')
+            else:
+                out = self.get_pager()
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
@@ -486,9 +489,8 @@ class SqlPlugin(Plugin):
         cols, lines = termsize()
         headings = cursor.keys()
         heading_sizes = map(lambda x: len(x), headings)
-        if paginate:
-            cursor = isublists(cursor, lines - 4)
-        for screenrows in cursor:
+        cursor = isublists(cursor, lines - 4)
+        for page_num, screenrows in enumerate(cursor):
             sizes = heading_sizes[:]
             for row in screenrows:
                 if row is None:
@@ -498,7 +500,8 @@ class SqlPlugin(Plugin):
                         value = str(value)
                     size = max(sizes[idx], len(value))
                     sizes[idx] = min(size, self.max_fieldsize)
-            draw_headings(headings, sizes)
+            if paginate or page_num == 0:
+                draw_headings(headings, sizes)
             for rw in screenrows:
                 if rw is None:
                     break  # from isublists impl
@@ -513,9 +516,6 @@ class SqlPlugin(Plugin):
                     value = value.replace('\r', '^').replace('\t', ' ')
                     out.write((fmt % value))
                 out.write('|\n')
-            if not paginate:
-                heading_line(sizes)
-                out.write('\n')
 
     def format_result_csv(self, cursor, out=sys.stdout):
         """Render an sql result set in CSV format.

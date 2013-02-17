@@ -29,7 +29,9 @@ def create_sql_alias(alias, magic_manager, sqlmagics):
         """Alias to %sql"""
         opts, args = [], []
         for chunk in arg_split(line):
-            if chunk.startswith('-') and len(chunk) > 1:
+            # XXX: what about math?!:
+            # select -1 + 5 * something from blah;
+            if chunk.startswith('-') and len(chunk.strip()) > 1:
                 opts.append(chunk)
             else:
                 args.append(chunk)
@@ -108,6 +110,8 @@ class SqlMagics(Magics):
               help='A dictionary of bind parameters for the sql statement')
     @argument('-f', '--format', action='store_true',
               help='pretty-print sql statement and exit')
+    @argument('-o', '--output', action='store', dest='file',
+              help='Write sql output to the given file')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
@@ -173,9 +177,12 @@ class SqlMagics(Magics):
             from ipydb.plugin import PivotResultSet  # XXX: circular imports
             if args.single:
                 self.ipydb.render_result(PivotResultSet(result),
-                                         paginate=False)
+                                         paginate=not bool(args.file),
+                                         filepath=args.file)
             else:
-                self.ipydb.render_result(result)
+                self.ipydb.render_result(result,
+                                         paginate=not bool(args.file),
+                                         filepath=args.file)
     sql.__description__ = 'Run an sql statement against ' \
         'the current ipydb connection.'
 
