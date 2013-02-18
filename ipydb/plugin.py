@@ -16,7 +16,7 @@ import sys
 from IPython.core.plugin import Plugin
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
-from utils import termsize
+from utils import termsize, multi_choice_prompt
 
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
@@ -283,6 +283,43 @@ class SqlPlugin(Plugin):
                     raise
                 print e.message
         return result
+
+    def run_sql_script(self, script, interactive=False, delimiter='/'):
+        """Run all SQL statments found in a text file.
+
+        Args:
+            script: path to file containing SQL statments.
+            interactive: run in ineractive mode, showing and prompting each
+                         statement. default: False.
+            delimiter: SQL statement delimiter, must be on a new line
+                       by itself. default: '/'.
+        """
+        with open(script) as fin:
+            current = ''
+            while True:
+                line = fin.readline()
+                if line.strip() == delimiter or (line == '' and current):
+                    if interactive:
+                        print current
+                        choice = multi_choice_prompt(
+                            'Run this statement:  '
+                            '([y]es, [n]o, [a]ll, [q]uit):',
+                            {'y': 'y', 'n': 'n', 'a': 'a', 'q': 'q'})
+                        if choice == 'y':
+                            pass
+                        elif choice == 'n':
+                            current = ''
+                        elif choice == 'a':
+                            interactive = False
+                        elif choice == 'q':
+                            break
+                    if current:
+                        self.execute(current)
+                        current = ''
+                else:
+                    current += line
+                if line == '':
+                    break
 
     def begin(self):
         """Start a new transaction against the current db connection."""

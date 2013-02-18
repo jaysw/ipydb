@@ -3,6 +3,25 @@
 import time
 
 
+def multi_choice_prompt(prompt, choices, default=None):
+    ans = None
+    while ans not in choices.keys():
+        try:
+            ans = raw_input(prompt + ' ').lower()
+            if not ans:  # response was an empty string
+                ans = default
+        except KeyboardInterrupt:
+            pass
+        except EOFError:
+            if default in choices.keys():
+                ans = default
+                print()
+            else:
+                raise
+
+    return choices[ans]
+
+
 class timer(object):
     """Timer Context Manager.
 

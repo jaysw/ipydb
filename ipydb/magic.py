@@ -187,8 +187,10 @@ class SqlMagics(Magics):
         'the current ipydb connection.'
 
     @magic_arguments()
-    @argument('-d', '--delimiter', action='store',
+    @argument('-d', '--delimiter', action='store', default='/',
               help='Statement delimiter. Must be on a new line by itself')
+    @argument('-i', '--interactive', action='store_true', default=False,
+              help='Interactive mode - show and prompt each SQL statement')
     @argument('file', action='store', help='SQL script file')
     @line_magic
     def run_sql_script(self, param=''):
@@ -198,7 +200,13 @@ class SqlMagics(Magics):
         by '/' by itself on a new line. This can be overidden with the
         -d option.
         """
-        pass  # TODO:
+        args = parse_argstring(self.run_sql_script, param)
+        self.ipydb.run_sql_script(
+            args.file,
+            interactive=args.interactive,
+            delimiter=args.delimiter)
+    run_sql_script.__description__ = 'Run delimited SQL ' \
+        'statements from a file'
 
     @line_magic
     def show_tables(self, param=''):
