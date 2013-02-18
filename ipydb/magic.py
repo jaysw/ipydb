@@ -193,19 +193,19 @@ class SqlMagics(Magics):
               help='Interactive mode - show and prompt each SQL statement')
     @argument('file', action='store', help='SQL script file')
     @line_magic
-    def run_sql_script(self, param=''):
+    def runsql(self, param=''):
         """Run delimited SQL statements from a file.
 
         SQL statements in the input file are expected to be delimited
         by '/' by itself on a new line. This can be overidden with the
         -d option.
         """
-        args = parse_argstring(self.run_sql_script, param)
+        args = parse_argstring(self.runsql, param)
         self.ipydb.run_sql_script(
             args.file,
             interactive=args.interactive,
             delimiter=args.delimiter)
-    run_sql_script.__description__ = 'Run delimited SQL ' \
+    runsql.__description__ = 'Run delimited SQL ' \
         'statements from a file'
 
     @line_magic
