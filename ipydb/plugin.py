@@ -302,7 +302,7 @@ class SqlPlugin(Plugin):
                     if interactive:
                         print current
                         choice = multi_choice_prompt(
-                            'Run this statement:  '
+                            'Run this statement '
                             '([y]es, [n]o, [a]ll, [q]uit):',
                             {'y': 'y', 'n': 'n', 'a': 'a', 'q': 'q'})
                         if choice == 'y':
