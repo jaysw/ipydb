@@ -294,6 +294,9 @@ class SqlPlugin(Plugin):
             delimiter: SQL statement delimiter, must be on a new line
                        by itself. default: '/'.
         """
+        if not self.connected:
+            print self.not_connected_message
+            return
         with open(script) as fin:
             current = ''
             while True:
