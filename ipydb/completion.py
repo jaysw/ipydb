@@ -105,6 +105,7 @@ class IpydbCompleter(object):
             'show_fields': self.sql_statement,
             'show_tables': self.sql_statement,
             'show_joins': self.sql_statement,
+            'show_fks': self.sql_statement,
             'sql': self.sql_statement,
             'runsql': lambda _: None  # delegate to ipython for file match
         }

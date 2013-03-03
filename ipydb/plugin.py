@@ -14,7 +14,7 @@ import os
 import sys
 
 from IPython.core.plugin import Plugin
-from metadata import CompletionDataAccessor, fk_as_join
+from metadata import CompletionDataAccessor
 import sqlalchemy as sa
 from utils import termsize, multi_choice_prompt
 
@@ -435,7 +435,7 @@ class SqlPlugin(Plugin):
             return
         fks = self.get_completion_data().get_all_joins(table)
         for fk in fks:
-            print fk_as_join(fk)
+            print fk.as_join()
 
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.
@@ -455,13 +455,20 @@ class SqlPlugin(Plugin):
         fieldname = bits[1] if len(bits) > 1 else ''
         fks = self.get_completion_data().fields_referencing(
             tablename, fieldname)
-        refs = []
         for fk in fks:
-            refs.append(
-                '%s(%s) references %s(%s)' % (
-                fk.table, ','.join(fk.columns),
-                fk.reftable, ','.join(fk.refcolumns)))
-        print '\n'.join(refs)
+            print fk
+
+    def show_fks(self, table):
+        """Show foreign keys for the given table
+
+        Args:
+            table: A table name."""
+        if not self.connected:
+            print self.not_connected_message
+            return
+        fks = self.get_completion_data().get_foreignkeys(table)
+        for fk in fks:
+            print fk
 
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager

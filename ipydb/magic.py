@@ -263,7 +263,7 @@ class SqlMagics(Magics):
         the target of a foreign key reference
 
         Examples:
-            what_referenes person.id
+            what_references person.id
                 : shows all fields having a foreign key referencing person.id
         """
         if not param.strip() or len(param.split()) != 1:
@@ -281,6 +281,17 @@ class SqlMagics(Magics):
             print "Usage: %show_joins TABLE_NAME"
             return
         self.ipydb.show_joins(param)
+
+    @line_magic
+    def show_fks(self, param=""):
+        """Shows a list of foreign keys for the given table.
+
+        Usage: %show_fks TABLE_NAME
+        """
+        if not param.strip() or len(param.split()) != 1:
+            print "Usage: %show_fks TABLE_NAME"
+            return
+        self.ipydb.show_fks(param)
 
     @line_magic
     def sqlformat(self, param=None):

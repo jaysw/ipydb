@@ -27,26 +27,30 @@ from IPython.utils.path import locate_profile
 CACHE_MAX_AGE = 60 * 10  # invalidate connection metadata if
                          # it is older than CACHE_MAX_AGE
 
+fkclass = namedtuple('ForeignKey', 'table columns reftable refcolumns')
 
-ForeignKey = namedtuple('ForeignKey', 'table columns reftable refcolumns')
 
+class ForeignKey(fkclass):
 
-def fk_as_join(fk):
-    """Return a string join statment from a ForeignKey object.
+    def __str__(self):
+        return '%s(%s) references %s(%s)' % (
+            self.table, ','.join(self.columns),
+            self.reftable, ','.join(self.refcolumns))
 
-    Args:
-        fk: a ForeignKey object
-    Returns:
-        string: "a inner join b on a.f = b.g..."
-    """
-    joinstr = '%s inner join %s on ' % (fk.reftable, fk.table)
-    sep = ''
-    for idx, col in enumerate(fk.columns):
-        joinstr += sep + '%s.%s = %s.%s' % (
-            fk.reftable, fk.refcolumns[idx],
-            fk.table, col)
-        sep = ' and '
-    return joinstr
+    def as_join(self):
+        """Return a join statement representation of an foreign key.
+
+        Returns:
+            string: "a inner join b on a.f = b.g..."
+        """
+        joinstr = '%s inner join %s on ' % (self.reftable, self.table)
+        sep = ''
+        for idx, col in enumerate(self.columns):
+            joinstr += sep + '%s.%s = %s.%s' % (
+                self.reftable, self.refcolumns[idx],
+                self.table, col)
+            sep = ' and '
+        return joinstr
 
 
 class MetaData(object):
@@ -72,6 +76,13 @@ class MetaData(object):
             return [df for df in self.dottedfields
                     if df.startswith(table + '.')]
         return self.dottedfields
+
+    def get_foreignkeys(self, table):
+        """Return foreign keys for a table.
+
+        Args:
+            table: table name."""
+        return [fk for fk in self.foreign_keys if fk.table == table]
 
     def tables_referencing(self, table):
         """Return a set of table names reference a given table name.
