@@ -87,6 +87,7 @@ class SqlPlugin(Plugin):
         self.autocommit = False
         self.trans_ctx = None
         self.debug = False
+        self.show_sql = False
         default, configs = engine.getconfigs()
         self.init_completer()
         if default:

@@ -6,6 +6,7 @@ IPython magic commands registered by ipydb
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+import logging
 
 from IPython.core.magic import Magics, magics_class, \
     line_magic, line_cell_magic
@@ -240,6 +241,18 @@ class SqlMagics(Magics):
                   having 'person' in their name
         """
         self.ipydb.show_fields(*param.split())
+
+    @line_magic
+    def show_sql(self, param=''):
+        """Toggle SQL statement logging from SqlAlchemy."""
+        if self.ipydb.show_sql:
+            level = logging.WARNING
+            self.ipydb.show_sql = False
+        else:
+            level = logging.INFO
+            self.ipydb.show_sql = True
+        logging.getLogger('sqlalchemy.engine').setLevel(level)
+        print 'SQL logging %s' % ('on' if self.ipydb.show_sql else 'off')
 
     @line_magic
     def what_references(self, param=""):

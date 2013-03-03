@@ -18,6 +18,7 @@ __author__ = 'Jay Sweeney'
 __license__ = 'artistic'
 __copyright__ = 'Copyright 2012 Jay Sweeney'
 
+import logging
 import os
 
 PLUGIN_NAME = 'ipydb'
@@ -36,6 +37,7 @@ def load_ipython_extension(ip):
         configure_prompt(plugin)
         _loaded = True
         ipydb_help()
+        logging.basicConfig()
 
 
 def configure_prompt(ipydb):
@@ -84,7 +86,7 @@ def ipydb_help():
 
 
 def get_brief_help():
-    """return a list of (magic_name, magic_first_line_of_docstring)
+    """return a list of (magic_name, first_line_of_docstring)
     for all the magic methods ipydb defines"""
     from magic import SqlMagics
     docs = []
