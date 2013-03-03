@@ -14,7 +14,7 @@ import os
 import sys
 
 from IPython.core.plugin import Plugin
-from metadata import CompletionDataAccessor
+from metadata import CompletionDataAccessor, fk_as_join
 import sqlalchemy as sa
 from utils import termsize, multi_choice_prompt
 
@@ -424,6 +424,18 @@ class SqlPlugin(Plugin):
                 raise
         finally:
             out.close()
+
+    def show_joins(self, table):
+        """Show all incoming and outgoing joins possible for a table.
+        Args:
+            table: Table name.
+        """
+        if not self.connected:
+            print self.not_connected_message
+            return
+        fks = self.get_completion_data().get_all_joins(table)
+        for fk in fks:
+            print fk_as_join(fk)
 
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.

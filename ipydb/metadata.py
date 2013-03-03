@@ -31,6 +31,24 @@ CACHE_MAX_AGE = 60 * 10  # invalidate connection metadata if
 ForeignKey = namedtuple('ForeignKey', 'table columns reftable refcolumns')
 
 
+def fk_as_join(fk):
+    """Return a string join statment from a ForeignKey object.
+
+    Args:
+        fk: a ForeignKey object
+    Returns:
+        string: "a inner join b on a.f = b.g..."
+    """
+    joinstr = '%s inner join %s on ' % (fk.reftable, fk.table)
+    sep = ''
+    for idx, col in enumerate(fk.columns):
+        joinstr += sep + '%s.%s = %s.%s' % (
+            fk.reftable, fk.refcolumns[idx],
+            fk.table, col)
+        sep = ' and '
+    return joinstr
+
+
 class MetaData(object):
 
     def __init__(self):
@@ -79,6 +97,20 @@ class MetaData(object):
                     refs.append(fk)
                 elif not field:
                     refs.append(fk)
+        return refs
+
+    def get_all_joins(self, table):
+        """Return all possible joins (fks) to and from a table.
+
+        Args:
+            table - return joins for table
+        Returns:
+            list fk's that represent joins to or from the given table.
+        """
+        refs = []
+        for fk in self.foreign_keys:
+            if table in (fk.reftable, fk.table):
+                refs.append(fk)
         return refs
 
     def get_joins(self, t1, t2):

@@ -81,8 +81,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def engine(self, arg):
-        """Return sqlalchemy engine reference to the current ipydb connection.
-        """
+        """Returns the current SqlAlchemy engine/connection."""
         return self.ipydb.get_engine()
 
     @line_magic
@@ -116,7 +115,7 @@ class SqlMagics(Magics):
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
-        """Run an sql statement against the current ipydb connection.
+        """Run an sql statement against the current db connection.
 
         Examples:
             %sql select first_name from person where first_name like 'J%'
@@ -273,6 +272,17 @@ class SqlMagics(Magics):
         self.ipydb.what_references(param)
 
     @line_magic
+    def show_joins(self, param=""):
+        """Shows a list of all joins involving a given table.
+
+        Usage: %show_joins TABLE_NAME
+        """
+        if not param.strip() or len(param.split()) != 1:
+            print "Usage: %show_joins TABLE_NAME"
+            return
+        self.ipydb.show_joins(param)
+
+    @line_magic
     def sqlformat(self, param=None):
         """Change the output format."""
         if not param or param not in ('csv', 'table'):
@@ -343,8 +353,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def rereflect(self, arg):
-        """Force re-loading of completion metadata for
-        the current connection"""
+        """Force re-loading of completion metadata."""
         self.ipydb.completion_data.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
 
