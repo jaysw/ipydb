@@ -16,7 +16,7 @@ import sys
 from IPython.core.plugin import Plugin
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
-from termsize import termsize
+from utils import termsize, multi_choice_prompt
 
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
@@ -84,7 +84,7 @@ class SqlPlugin(Plugin):
         self.connected = False
         self.engine = None
         self.nickname = None
-        self.autocommit = True
+        self.autocommit = False
         self.trans_ctx = None
         self.debug = False
         default, configs = engine.getconfigs()
@@ -269,9 +269,12 @@ class SqlPlugin(Plugin):
             if len(bits) == 2 and bits[0].lower() == 'select' and \
                     bits[1] in self.completion_data.tables(self.engine):
                 query = 'select * from %s' % bits[1]
+            elif bits[0].lower() in 'insert update delete'.split() \
+                    and not self.trans_ctx and not self.autocommit:
+                self.begin()
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
-                conn = self.trans_ctx.conn.execute
+                conn = self.trans_ctx.conn
             try:
                 result = conn.execute(query, *multiparams, **params)
             except Exception, e:
@@ -279,6 +282,46 @@ class SqlPlugin(Plugin):
                     raise
                 print e.message
         return result
+
+    def run_sql_script(self, script, interactive=False, delimiter='/'):
+        """Run all SQL statments found in a text file.
+
+        Args:
+            script: path to file containing SQL statments.
+            interactive: run in ineractive mode, showing and prompting each
+                         statement. default: False.
+            delimiter: SQL statement delimiter, must be on a new line
+                       by itself. default: '/'.
+        """
+        if not self.connected:
+            print self.not_connected_message
+            return
+        with open(script) as fin:
+            current = ''
+            while True:
+                line = fin.readline()
+                if line.strip() == delimiter or (line == '' and current):
+                    if interactive:
+                        print current
+                        choice = multi_choice_prompt(
+                            'Run this statement '
+                            '([y]es, [n]o, [a]ll, [q]uit):',
+                            {'y': 'y', 'n': 'n', 'a': 'a', 'q': 'q'})
+                        if choice == 'y':
+                            pass
+                        elif choice == 'n':
+                            current = ''
+                        elif choice == 'a':
+                            interactive = False
+                        elif choice == 'q':
+                            break
+                    if current:
+                        self.execute(current)
+                        current = ''
+                else:
+                    current += line
+                if line == '':
+                    break
 
     def begin(self):
         """Start a new transaction against the current db connection."""
@@ -410,7 +453,7 @@ class SqlPlugin(Plugin):
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
 
-    def render_result(self, cursor, paginate=True):
+    def render_result(self, cursor, paginate=True, filepath=None):
         """Render a result set and pipe through less.
 
         Args:
@@ -419,7 +462,10 @@ class SqlPlugin(Plugin):
                     headings for the tuples.
         """
         try:
-            out = self.get_pager()
+            if filepath:
+                out = open(filepath, 'w')
+            else:
+                out = self.get_pager()
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
@@ -462,9 +508,8 @@ class SqlPlugin(Plugin):
         cols, lines = termsize()
         headings = cursor.keys()
         heading_sizes = map(lambda x: len(x), headings)
-        if paginate:
-            cursor = isublists(cursor, lines - 4)
-        for screenrows in cursor:
+        cursor = isublists(cursor, lines - 4)
+        for page_num, screenrows in enumerate(cursor):
             sizes = heading_sizes[:]
             for row in screenrows:
                 if row is None:
@@ -474,7 +519,8 @@ class SqlPlugin(Plugin):
                         value = str(value)
                     size = max(sizes[idx], len(value))
                     sizes[idx] = min(size, self.max_fieldsize)
-            draw_headings(headings, sizes)
+            if paginate or page_num == 0:
+                draw_headings(headings, sizes)
             for rw in screenrows:
                 if rw is None:
                     break  # from isublists impl
@@ -489,9 +535,6 @@ class SqlPlugin(Plugin):
                     value = value.replace('\r', '^').replace('\t', ' ')
                     out.write((fmt % value))
                 out.write('|\n')
-            if not paginate:
-                heading_line(sizes)
-                out.write('\n')
 
     def format_result_csv(self, cursor, out=sys.stdout):
         """Render an sql result set in CSV format.
