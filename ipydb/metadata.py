@@ -31,6 +31,7 @@ fkclass = namedtuple('ForeignKey', 'table columns reftable refcolumns')
 
 
 class ForeignKey(fkclass):
+    __slots__ = ()
 
     def __str__(self):
         return '%s(%s) references %s(%s)' % (
@@ -52,6 +53,15 @@ class ForeignKey(fkclass):
             sep = ' and '
         return joinstr
 
+pkclass = namedtuple('PrimaryKey', 'table columns')
+
+
+class PrimaryKey(pkclass):
+    __slots__ = ()
+
+    def __str__(self):
+        return "primary key %s (%s)" % (self.table, ','.join(self.columns))
+
 
 class MetaData(object):
 
@@ -64,6 +74,7 @@ class MetaData(object):
         self._dottedfields = set()
         self._types = dict()
         self._foreign_keys = []
+        self._primary_keys = []
 
     def get_fields(self, table=None):
         if table:
@@ -83,6 +94,15 @@ class MetaData(object):
         Args:
             table: table name."""
         return [fk for fk in self.foreign_keys if fk.table == table]
+
+    def get_primarykey(self, table):
+        """Return primary key for a table.
+
+        Args:
+            table: table name."""
+        for k in self.primary_keys:
+            if k.table == table:
+                return k
 
     def tables_referencing(self, table):
         """Return a set of table names reference a given table name.
@@ -179,6 +199,14 @@ class MetaData(object):
     @foreign_keys.setter
     def foreign_keys(self, value):
         self._foreign_keys = value
+
+    @property
+    def primary_keys(self):
+        return self._primary_keys
+
+    @primary_keys.setter
+    def primary_keys(self, value):
+        self._primary_keys = value
 
     def __getitem__(self, key):
         # XXX: temporary back-compat hack
@@ -286,6 +314,8 @@ class CompletionDataAccessor(object):
             except ValueError:
                 pass
             all_fks.append(fk)
+        pk_cols = [c.name for c in t.primary_key.columns]
+        self.metadata[db_key].primary_keys.append(PrimaryKey(t.name, pk_cols))
         write_queue.put_nowait((db_key, t))
 
     def get_db_key(self, url):
@@ -295,6 +325,7 @@ class CompletionDataAccessor(object):
 
     def read(self, db_key):
         fks = {}
+        pks = {}
         result = self.db.execute("""
             select
                 t.db_key,
@@ -304,7 +335,8 @@ class CompletionDataAccessor(object):
                 constraint_name,
                 position_in_constraint,
                 referenced_table,
-                referenced_column
+                referenced_column,
+                f.primary_key
             from dbtable t inner join dbfield f
                 on f.table_id = t.id
             where
@@ -317,6 +349,13 @@ class CompletionDataAccessor(object):
             dottedfield = '%s.%s' % (r.tablename, r.fieldname)
             self.metadata[db_key]['dottedfields'].add(dottedfield)
             self.metadata[db_key]['types'][dottedfield] = r.type
+            if r.primary_key:
+                if r.tablename not in pks:
+                    pk = PrimaryKey(r.tablename, [])
+                    pks[r.tablename] = pk
+                    self.metadata[db_key].primary_keys.append(pk)
+                pks[r.tablename].columns.append(r.fieldname)
+
             if r.constraint_name:
                 if r.constraint_name not in fks:
                     fks[r.constraint_name] = {
@@ -369,6 +408,7 @@ class CompletionDataAccessor(object):
                     position_in_constraint int,
                     referenced_table text,
                     referenced_column text,
+                    primary_key boolean,
                     constraint db_field_unique
                         unique (table_id, name)
                         on conflict rollback
@@ -504,7 +544,8 @@ class CompletionDataAccessor(object):
                             constraint_name,
                             position_in_constraint,
                             referenced_table,
-                            referenced_column
+                            referenced_column,
+                            primary_key
                         ) values (
                             :table_id,
                             :field,
@@ -512,7 +553,8 @@ class CompletionDataAccessor(object):
                             :constraint_name,
                             :pos,
                             :reftable,
-                            :refcolumn
+                            :refcolumn,
+                            :primary_key
                         )
                     """,
                     dict(
@@ -522,7 +564,8 @@ class CompletionDataAccessor(object):
                         constraint_name=constraint_name,
                         pos=pos,
                         reftable=reftable,
-                        refcolumn=refcolumn))
+                        refcolumn=refcolumn,
+                        primary_key=table.primary_key.contains_column(column)))
             except sa.exc.IntegrityError:  # exists
                 sqconn.execute(
                     """
@@ -532,6 +575,7 @@ class CompletionDataAccessor(object):
                         position_in_constraint = :pos,
                         referenced_table = :reftable,
                         referenced_column = :refcolumn
+                        primary_key = :primary_key
                     where
                         table_id = :table_id
                         and name = :field""",
@@ -542,6 +586,7 @@ class CompletionDataAccessor(object):
                         constraint_name=constraint_name,
                         pos=pos,
                         reftable=reftable,
+                        primary_key=table.primary_key.contains_column(column),
                         refcolumn=refcolumn))
 
 

@@ -242,6 +242,11 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
+    def describe(self, param=''):
+        """Print information about table: columns and keys."""
+        self.ipydb.describe(*param.split())
+
+    @line_magic
     def show_sql(self, param=''):
         """Toggle SQL statement logging from SqlAlchemy."""
         if self.ipydb.show_sql:

@@ -27,6 +27,20 @@ def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
+class Pager(object):
+    def __init__(self):
+        self.out = os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
+
+    def __enter__(self):
+        return self.out
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type == IOError and exc_val and \
+                exc_val.args == (32, 'Broken pipe'):
+            return True  # user quit pager
+        self.out.close()
+
+
 class FakedResult(object):
     """Utility for making an iterable look like an sqlalchemy ResultProxy."""
 
@@ -171,13 +185,13 @@ class SqlPlugin(Plugin):
 
     @property
     def metadata(self):
-        """Get sqlalchemy.MetaData instance for current connection."""
+        """Get metadata.MetaData instance for current connection.
+        Returns:
+            instance of metadata.MetaData.
+        """
         if not self.connected:
             return None
-        meta = getattr(self, '_metadata', None)
-        if meta is None or self._metadata.bind != self.engine:
-            self._metadata = sa.MetaData(bind=self.engine)
-        return self._metadata
+        return self.completion_data.get_metadata(self.engine)
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
@@ -381,6 +395,40 @@ class SqlPlugin(Plugin):
         self.render_result(FakedResult(((r,) for r in matches), ['Table']))
         # print '\n'.join(sorted(matches))
 
+    def describe(self, table):
+        """Print information about a table."""
+        if not self.connected:
+            print self.not_connected_message
+            return
+        #self.show_fields(table)
+        if table not in self.metadata.tables:
+            print "Table not found: %s" % table
+            return
+        pkhash = {pk.table: pk.columns for pk in self.metadata.primary_keys}
+        with self.pager() as out:
+            items = []
+            for col in self.metadata.get_fields(table):
+                type_ = self.metadata.types.get('%s.%s' % (table, col), '???')
+                if col in pkhash[table]:  # tag primary key
+                    col = '*%s' % col
+                items.append((col, type_))
+            items.sort()
+            self.format_result_pretty(FakedResult(items, 'Field Type'.split()),
+                                      out)
+            out.write('\n')
+            out.write('Primary Key (*)\n')
+            out.write('---------------\n')
+            pk = self.metadata.get_primarykey(table)
+            cols = pk.columns if pk else []
+            out.write('  ')
+            out.write(', '.join(cols))
+            out.write('\n\n')
+            out.write('Foreign Keys\n')
+            out.write('------------\n')
+            for fk in self.metadata.get_foreignkeys(table):
+                out.write('  ')
+                out.write("%4s\n" % str(fk))
+
     def show_fields(self, *globs):
         """
         Print a list of fields matching the input glob tableglob[.fieldglob].
@@ -395,6 +443,7 @@ class SqlPlugin(Plugin):
             return
         matches = set()
         dottedfields = self.completion_data.dottedfields(self.engine)
+        pkhash = {pk.table: pk.columns for pk in self.metadata.primary_keys}
         if not globs:
             matches = dottedfields
         for glob in globs:
@@ -403,10 +452,11 @@ class SqlPlugin(Plugin):
                 glob += '.*'
             matches.update(fnmatch.filter(dottedfields, glob))
         tprev = None
-        try:
-            out = self.get_pager()
+        with self.pager() as out:
             for match in sorted(matches):
                 tablename, fieldname = match.split('.', 1)
+                if fieldname in pkhash[tablename]:  # tag primary key
+                    fieldname = '*%s' % fieldname
                 if tablename != tprev:
                     if tprev is not None:
                         out.write("\n")
@@ -417,13 +467,6 @@ class SqlPlugin(Plugin):
                     self.completion_data.types(self.engine).get(match, '[?]')))
                 tprev = tablename
             out.write('\n')
-        except IOError, msg:
-            if msg.args == (32, 'Broken pipe'):  # user quit
-                pass
-            else:
-                raise
-        finally:
-            out.close()
 
     def show_joins(self, table):
         """Show all incoming and outgoing joins possible for a table.
@@ -470,8 +513,8 @@ class SqlPlugin(Plugin):
         for fk in fks:
             print fk
 
-    def get_pager(self):
-        return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
+    def pager(self):
+        return Pager()
 
     def render_result(self, cursor, paginate=True, filepath=None):
         """Render a result set and pipe through less.
@@ -481,23 +524,16 @@ class SqlPlugin(Plugin):
                     cursor.keys() which returns a list of string columns
                     headings for the tuples.
         """
-        try:
-            if filepath:
-                out = open(filepath, 'w')
-            else:
-                out = self.get_pager()
+        if filepath:
+            out = open(filepath, 'w')
+        else:
+            out = self.pager()
+        with out as out:  # i'm being lazy with Pager()
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
                 self.format_result_pretty(cursor, out=out,
                                           paginate=paginate)
-        except IOError, msg:
-            if msg.args == (32, 'Broken pipe'):  # user quit
-                pass
-            else:
-                raise
-        finally:
-            out.close()
 
     def format_result_pretty(self, cursor, out=sys.stdout, paginate=True):
         """Render an SQL result set as an ascii-table.
