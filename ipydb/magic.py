@@ -177,7 +177,7 @@ class SqlMagics(Magics):
             from ipydb.plugin import PivotResultSet  # XXX: circular imports
             if args.single:
                 self.ipydb.render_result(PivotResultSet(result),
-                                         paginate=not bool(args.file),
+                                         paginate=False,
                                          filepath=args.file)
             else:
                 self.ipydb.render_result(result,
