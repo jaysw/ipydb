@@ -103,9 +103,10 @@ class IpydbCompleter(object):
             'sqlformat': self.sql_format,
             'what_references': self.sql_statement,
             'show_fields': self.sql_statement,
-            'show_tables': self.sql_statement,
-            'show_joins': self.sql_statement,
-            'show_fks': self.sql_statement,
+            'show_tables': self.table_name,
+            'show_joins': self.table_name,
+            'show_fks': self.table_name,
+            'describe': self.table_name,
             'sql': self.sql_statement,
             'runsql': lambda _: None  # delegate to ipython for file match
         }
@@ -161,6 +162,10 @@ class IpydbCompleter(object):
         # simple single-token completion: foo<tab>
         return match_lists([metadata.tables, metadata.fields, RESERVED_WORDS],
                            ev.symbol)
+
+    def table_name(self, ev):
+        metadata = self.ipydb.get_completion_data()
+        return match_lists([metadata.tables], ev.symbol)
 
     def is_valid_join_expression(self, expr):
         metadata = self.ipydb.get_completion_data()
