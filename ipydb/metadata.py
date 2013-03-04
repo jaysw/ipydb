@@ -574,7 +574,7 @@ class CompletionDataAccessor(object):
                         constraint_name = :constraint_name,
                         position_in_constraint = :pos,
                         referenced_table = :reftable,
-                        referenced_column = :refcolumn
+                        referenced_column = :refcolumn,
                         primary_key = :primary_key
                     where
                         table_id = :table_id

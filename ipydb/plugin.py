@@ -413,21 +413,26 @@ class SqlPlugin(Plugin):
                     col = '*%s' % col
                 items.append((col, type_))
             items.sort()
-            self.format_result_pretty(FakedResult(items, 'Field Type'.split()),
-                                      out)
-            out.write('\n')
+            self.format_result_pretty(
+                FakedResult([items], 'Field Type'.split()),
+                out, paginate=False)
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
             pk = self.metadata.get_primarykey(table)
             cols = pk.columns if pk else []
             out.write('  ')
+            if not pk:
+                out.write('(None Found!)')
             out.write(', '.join(cols))
             out.write('\n\n')
             out.write('Foreign Keys\n')
             out.write('------------\n')
-            for fk in self.metadata.get_foreignkeys(table):
-                out.write('  ')
-                out.write("%4s\n" % str(fk))
+            fks = self.metadata.get_foreignkeys(table)
+            fk = None
+            for fk in fks:
+                out.write('  %s\n' % str(fk))
+            if fk is None:
+                out.write('  (None Found)')
 
     def show_fields(self, *globs):
         """
