@@ -67,7 +67,7 @@ ipydb uses [SqlAlchemy](http://www.sqlalchemy.org/) to interact with databases. 
 Connecting to Databases
 -----------------------
 There are two ways to connect to a database with ipydb. Directly via a connection url, using
-the `connect_url` magic fucntion, or, using a connection 'nickname' with the `connect` magic function.
+the `connect_url` magic function, or, using a connection 'nickname' with the `connect` magic function.
 
 ###1\. Using `connect_url`
 
