@@ -23,15 +23,12 @@ import engine
 from magic import SqlMagics, register_sql_aliases
 
 
-def sublists(l, n):
-    return (l[i:i + n] for i in range(0, len(l), n))
-
-
 def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
 class FakedResult(object):
+    """Utility for making an iterable look like an sqlalchemy ResultProxy."""
 
     def __init__(self, items, headings):
         self.items = items
@@ -45,6 +42,8 @@ class FakedResult(object):
 
 
 class PivotResultSet(object):
+    """Pivot a result set into an iterable of (fieldname, value)."""
+
     def __init__(self, rs):
         self.rs = rs
 
@@ -88,6 +87,7 @@ class SqlPlugin(Plugin):
         self.autocommit = False
         self.trans_ctx = None
         self.debug = False
+        self.show_sql = False
         default, configs = engine.getconfigs()
         self.init_completer()
         if default:
@@ -95,8 +95,8 @@ class SqlPlugin(Plugin):
 
     def init_completer(self):
         """Setup ipydb sql completion."""
-        # to complete things like table.* we needto
-        # change the ipydb spliiter delims:
+        # to complete things like table.* we need to
+        # change the ipydb spliter delims:
         delims = self.shell.Completer.splitter.delims.replace('*', '')
         self.shell.Completer.splitter.delim = delims
         if self.shell.Completer.readline:
@@ -238,7 +238,7 @@ class SqlPlugin(Plugin):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_data.get_metadata(self.engine)
+            self.completion_data.get_metadata(self.engine, noisy=True)
         return True
 
     def flush_metadata(self):
@@ -425,6 +425,18 @@ class SqlPlugin(Plugin):
         finally:
             out.close()
 
+    def show_joins(self, table):
+        """Show all incoming and outgoing joins possible for a table.
+        Args:
+            table: Table name.
+        """
+        if not self.connected:
+            print self.not_connected_message
+            return
+        fks = self.get_completion_data().get_all_joins(table)
+        for fk in fks:
+            print fk.as_join()
+
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.
 
@@ -441,38 +453,22 @@ class SqlPlugin(Plugin):
         bits = arg.split('.', 1)
         tablename = bits[0]
         fieldname = bits[1] if len(bits) > 1 else ''
-        field = table = None
-        meta = self.completion_data.sa_metadata
-        meta.reflect()  # XXX: can be very slow! TODO: don't do this
-        for tname, tbl in meta.tables.iteritems():
-            if tbl.name.lower() == tablename.lower():
-                table = tbl
-                break
-        if table is None:
-            print "Could not find table `%s`" % (tablename,)
+        fks = self.get_completion_data().fields_referencing(
+            tablename, fieldname)
+        for fk in fks:
+            print fk
+
+    def show_fks(self, table):
+        """Show foreign keys for the given table
+
+        Args:
+            table: A table name."""
+        if not self.connected:
+            print self.not_connected_message
             return
-        if fieldname:
-            for col in table.columns:
-                if col.name == fieldname:
-                    field = col
-                    break
-        if fieldname and field is None:
-            print "Could not find `%s.%s`" % (tablename, fieldname)
-            return
-        refs = []
-        for tname, tbl in meta.tables.iteritems():
-            for fk in tbl.foreign_keys:
-                if ((field is not None and fk.references(table) and
-                        bool(fk.get_referent(table) == field)) or
-                        (field is None and fk.references(table))):
-                    sourcefield = "%s.%s" % (
-                        fk.parent.table.name, fk.parent.name)
-                    refs.append((sourcefield, fk.target_fullname))
-        if refs:
-            maxleft = max(map(lambda x: len(x[0]), refs)) + 2
-            fmt = u"%%-%ss references %%s" % (maxleft,)
-        for ref in sorted(refs, key=lambda x: x[0]):
-            print fmt % ref
+        fks = self.get_completion_data().get_foreignkeys(table)
+        for fk in fks:
+            print fk
 
     def get_pager(self):
         return os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager

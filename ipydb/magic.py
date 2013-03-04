@@ -6,6 +6,7 @@ IPython magic commands registered by ipydb
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+import logging
 
 from IPython.core.magic import Magics, magics_class, \
     line_magic, line_cell_magic
@@ -80,8 +81,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def engine(self, arg):
-        """Return sqlalchemy engine reference to the current ipydb connection.
-        """
+        """Returns the current SqlAlchemy engine/connection."""
         return self.ipydb.get_engine()
 
     @line_magic
@@ -115,7 +115,7 @@ class SqlMagics(Magics):
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):
-        """Run an sql statement against the current ipydb connection.
+        """Run an sql statement against the current db connection.
 
         Examples:
             %sql select first_name from person where first_name like 'J%'
@@ -242,6 +242,18 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
+    def show_sql(self, param=''):
+        """Toggle SQL statement logging from SqlAlchemy."""
+        if self.ipydb.show_sql:
+            level = logging.WARNING
+            self.ipydb.show_sql = False
+        else:
+            level = logging.INFO
+            self.ipydb.show_sql = True
+        logging.getLogger('sqlalchemy.engine').setLevel(level)
+        print 'SQL logging %s' % ('on' if self.ipydb.show_sql else 'off')
+
+    @line_magic
     def what_references(self, param=""):
         """Shows a list of all foreign keys that reference the given field.
 
@@ -251,13 +263,35 @@ class SqlMagics(Magics):
         the target of a foreign key reference
 
         Examples:
-            what_referenes person.id
+            what_references person.id
                 : shows all fields having a foreign key referencing person.id
         """
         if not param.strip() or len(param.split()) != 1:
             print "Usage: %what_references TABLE_NAME[.FIELD_NAME]"
             return
         self.ipydb.what_references(param)
+
+    @line_magic
+    def show_joins(self, param=""):
+        """Shows a list of all joins involving a given table.
+
+        Usage: %show_joins TABLE_NAME
+        """
+        if not param.strip() or len(param.split()) != 1:
+            print "Usage: %show_joins TABLE_NAME"
+            return
+        self.ipydb.show_joins(param)
+
+    @line_magic
+    def show_fks(self, param=""):
+        """Shows a list of foreign keys for the given table.
+
+        Usage: %show_fks TABLE_NAME
+        """
+        if not param.strip() or len(param.split()) != 1:
+            print "Usage: %show_fks TABLE_NAME"
+            return
+        self.ipydb.show_fks(param)
 
     @line_magic
     def sqlformat(self, param=None):
@@ -330,10 +364,9 @@ class SqlMagics(Magics):
 
     @line_magic
     def rereflect(self, arg):
-        """Force re-loading of completion metadata for
-        the current connection"""
+        """Force re-loading of completion metadata."""
         self.ipydb.completion_data.get_metadata(
-            self.ipydb.engine, force=True)
+            self.ipydb.engine, force=True, noisy=True)
 
     @line_magic
     def save_connection(self, arg):
