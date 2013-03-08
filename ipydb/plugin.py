@@ -392,6 +392,7 @@ class SqlPlugin(Plugin):
         else:
             for glob in globs:
                 matches.update(fnmatch.filter(tablenames, glob))
+        matches = sorted(matches)
         self.render_result(FakedResult(((r,) for r in matches), ['Table']))
         # print '\n'.join(sorted(matches))
 
@@ -409,7 +410,7 @@ class SqlPlugin(Plugin):
             items = []
             for col in self.metadata.get_fields(table):
                 type_ = self.metadata.types.get('%s.%s' % (table, col), '???')
-                if col in pkhash[table]:  # tag primary key
+                if table in pkhash and col in pkhash[table]:  # tag primary key
                     col = '*%s' % col
                 items.append((col, type_))
             items.sort()
@@ -460,7 +461,7 @@ class SqlPlugin(Plugin):
         with self.pager() as out:
             for match in sorted(matches):
                 tablename, fieldname = match.split('.', 1)
-                if fieldname in pkhash[tablename]:  # tag primary key
+                if tablename in pkhash and fieldname in pkhash[tablename]:
                     fieldname = '*%s' % fieldname
                 if tablename != tprev:
                     if tprev is not None:
