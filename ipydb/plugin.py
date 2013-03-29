@@ -76,7 +76,7 @@ class SqlPlugin(Plugin):
     """The ipydb plugin - manipulate databases from ipython."""
 
     max_fieldsize = 100  # configurable?
-    completion_data = CompletionDataAccessor()
+    completion_accessor = CompletionDataAccessor()
     sqlformats = "table csv".split()
     not_connected_message = "ipydb is not connected to a database. " \
         "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
@@ -164,7 +164,7 @@ class SqlPlugin(Plugin):
         """
         if not self.connected:
             return ''
-        return ' !' if self.completion_data.reflecting(self.engine) else ''
+        return ' !' if self.completion_accessor.reflecting(self.engine) else ''
 
     def safe_url(self, url_string):
         """Return url_string with password removed."""
@@ -176,22 +176,15 @@ class SqlPlugin(Plugin):
             pass
         return url
 
-    def get_completion_data(self):
-        """return completion data information for current connection"""
-        if not self.connected:
-            return self.completion_data._meta()
-        else:
-            return self.completion_data.get_metadata(self.engine)
-
     @property
-    def metadata(self):
-        """Get metadata.MetaData instance for current connection.
+    def comp_data(self):
+        """Returns completion data for the currect connection.
         Returns:
-            instance of metadata.MetaData.
+            Instance of ipydb.metadata.MetaData().
         """
         if not self.connected:
             return None
-        return self.completion_data.get_metadata(self.engine)
+        return self.completion_accessor.get_metadata(self.engine)
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
@@ -252,15 +245,15 @@ class SqlPlugin(Plugin):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_data.get_metadata(self.engine, noisy=True)
+            self.completion_accessor.get_metadata(self.engine, noisy=True)
         return True
 
     def flush_metadata(self):
         """Delete cached schema information"""
         print "Deleting metadata..."
-        self.completion_data.flush()
+        self.completion_accessor.flush()
         if self.connected:
-            self.completion_data.get_metadata(self.engine)
+            self.completion_accessor.get_metadata(self.engine)
 
     def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
@@ -282,7 +275,7 @@ class SqlPlugin(Plugin):
         else:
             bits = query.split()
             if len(bits) == 2 and bits[0].lower() == 'select' and \
-                    bits[1] in self.completion_data.tables(self.engine):
+                    bits[1] in self.comp_data.tables:
                 query = 'select * from %s' % bits[1]
             elif bits[0].lower() in 'insert update delete'.split() \
                     and not self.trans_ctx and not self.autocommit:
@@ -386,7 +379,7 @@ class SqlPlugin(Plugin):
             print self.not_connected_message
             return
         matches = set()
-        tablenames = self.completion_data.tables(self.engine)
+        tablenames = self.comp_data.tables
         if not globs:
             matches = tablenames
         else:
@@ -402,14 +395,14 @@ class SqlPlugin(Plugin):
             print self.not_connected_message
             return
         #self.show_fields(table)
-        if table not in self.metadata.tables:
+        if table not in self.comp_data.tables:
             print "Table not found: %s" % table
             return
-        pkhash = {pk.table: pk.columns for pk in self.metadata.primary_keys}
+        pkhash = {pk.table: pk.columns for pk in self.comp_data.primary_keys}
         with self.pager() as out:
             items = []
-            for col in self.metadata.get_fields(table):
-                type_ = self.metadata.types.get('%s.%s' % (table, col), '???')
+            for col in self.comp_data.get_fields(table):
+                type_ = self.comp_data.types.get('%s.%s' % (table, col), '???')
                 if table in pkhash and col in pkhash[table]:  # tag primary key
                     col = '*%s' % col
                 items.append((col, type_))
@@ -419,7 +412,7 @@ class SqlPlugin(Plugin):
                 out, paginate=False)
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
-            pk = self.metadata.get_primarykey(table)
+            pk = self.comp_data.get_primarykey(table)
             cols = pk.columns if pk else []
             out.write('  ')
             if not pk:
@@ -428,7 +421,7 @@ class SqlPlugin(Plugin):
             out.write('\n\n')
             out.write('Foreign Keys\n')
             out.write('------------\n')
-            fks = self.metadata.get_foreignkeys(table)
+            fks = self.comp_data.get_foreignkeys(table)
             fk = None
             for fk in fks:
                 out.write('  %s\n' % str(fk))
@@ -448,8 +441,8 @@ class SqlPlugin(Plugin):
             print self.not_connected_message
             return
         matches = set()
-        dottedfields = self.completion_data.dottedfields(self.engine)
-        pkhash = {pk.table: pk.columns for pk in self.metadata.primary_keys}
+        dottedfields = self.comp_data.dottedfields
+        pkhash = {pk.table: pk.columns for pk in self.comp_data.primary_keys}
         if not globs:
             matches = dottedfields
         for glob in globs:
@@ -470,7 +463,7 @@ class SqlPlugin(Plugin):
                     out.write('-' * len(tablename) + '\n')
                 out.write("    %-35s%s\n" % (
                     fieldname,
-                    self.completion_data.types(self.engine).get(match, '[?]')))
+                    self.comp_data.types.get(match, '[?]')))
                 tprev = tablename
             out.write('\n')
 
@@ -482,7 +475,7 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
             return
-        fks = self.get_completion_data().get_all_joins(table)
+        fks = self.comp_data.get_all_joins(table)
         for fk in fks:
             print fk.as_join()
 
@@ -502,7 +495,7 @@ class SqlPlugin(Plugin):
         bits = arg.split('.', 1)
         tablename = bits[0]
         fieldname = bits[1] if len(bits) > 1 else ''
-        fks = self.get_completion_data().fields_referencing(
+        fks = self.comp_data.fields_referencing(
             tablename, fieldname)
         for fk in fks:
             print fk
@@ -515,7 +508,7 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
             return
-        fks = self.get_completion_data().get_foreignkeys(table)
+        fks = self.comp_data.get_foreignkeys(table)
         for fk in fks:
             print fk
 

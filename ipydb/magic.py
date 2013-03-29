@@ -370,7 +370,7 @@ class SqlMagics(Magics):
     @line_magic
     def rereflect(self, arg):
         """Force re-loading of completion metadata."""
-        self.ipydb.completion_data.get_metadata(
+        self.ipydb.completion_accessor.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
 
     @line_magic

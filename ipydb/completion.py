@@ -147,7 +147,7 @@ class IpydbCompleter(object):
 
     def sql_statement(self, ev):
         """Completions for %sql commands"""
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         chunks = ev.line.split()
         if len(chunks) == 2:
             first, second = chunks
@@ -164,11 +164,11 @@ class IpydbCompleter(object):
                            ev.symbol)
 
     def table_name(self, ev):
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         return match_lists([metadata.tables], ev.symbol)
 
     def is_valid_join_expression(self, expr):
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         if '**' not in expr:
             return False
         tables = expr.split('**')
@@ -182,7 +182,7 @@ class IpydbCompleter(object):
         return valid
 
     def expand_join_expression(self, expr):
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         if not self.is_valid_join_expression(expr):
             return expr
         tables = expr.split('**')
@@ -207,7 +207,7 @@ class IpydbCompleter(object):
         return ret
 
     def join_shortcut(self, ev):
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
 
         def _all_joining_tables(tables):
             ret = set()
@@ -237,7 +237,7 @@ class IpydbCompleter(object):
 
     def dotted_expression(self, ev, expansion=True):
         """Return completions for head.tail<tab>"""
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         head, tail = ev.symbol.split('.')
         if expansion and head in metadata.tables and tail == '*':
             # tablename.*<tab> -> expand all names
@@ -256,7 +256,7 @@ class IpydbCompleter(object):
     def expand_two_token_sql(self, ev):
         """Return special expansions for 'select tablename<tab>'
         and for insert 'tablename<tab>'"""
-        metadata = self.ipydb.get_completion_data()
+        metadata = self.ipydb.comp_data
         first, tablename = ev.line.split()
         if first == 'select':
             colstr = ', '.join('%s.*' % t for t in tablename.split('**'))

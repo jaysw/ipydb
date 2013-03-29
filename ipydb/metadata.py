@@ -8,7 +8,6 @@ a database schema.
 :license: see LICENSE for more details.
 """
 
-import atexit
 from collections import defaultdict, namedtuple
 import datetime
 from datetime import timedelta
@@ -16,9 +15,6 @@ from dateutil import parser
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import os
-import Queue
-import sqlite3
-import threading
 
 import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
@@ -75,6 +71,7 @@ class MetaData(object):
         self._types = dict()
         self._foreign_keys = []
         self._primary_keys = []
+        self.sa_metadata = sa.MetaData()
 
     def get_fields(self, table=None):
         if table:
@@ -217,85 +214,70 @@ class MetaData(object):
 
 
 class CompletionDataAccessor(object):
-    '''reads and writes db-completion data from/to an sqlite db'''
+    """Reads and writes db-completion data from/to an sqlite db."""
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
     dburl = 'sqlite:////%s' % os.path.join(locate_profile(), 'ipydb.sqlite')
 
     def __init__(self):
-        self.metadata = defaultdict(self._meta)
+        self.metadata = defaultdict(MetaData)
         self.db = sa.engine.create_engine(self.dburl)
         self.create_schema(self.db)
-        self._sa_metadata = None
-        self.save_thread = MetadataSavingThread(self)
-        self.save_thread.start()
-
-    def _meta(self):
-        return MetaData()
-
-    def sa_metadata():
-        def fget(self):
-            meta = getattr(self, '_sa_metadata', None)
-            if meta is None:
-                self._sa_metadata = sa.MetaData()
-            return self._sa_metadata
-        return locals()
-    sa_metadata = property(**sa_metadata())
 
     def get_metadata(self, db, noisy=False, force=False):
         db_key = self.get_db_key(db.url)
         metadata = self.metadata[db_key]
         if metadata.isempty:  # XXX: what if schema exists, but is empty?!
-            self.read(db_key)  # XXX is this slow? use self.pool.apply_async?
-            metadata.isempty = False
+            has_metadata = self.has_metadata(db_key)
+            if has_metadata:
+                self.read(db_key)  # XXX is this slow? make async?
+                metadata.isempty = False
         now = datetime.datetime.now()
-        if (force or metadata.isempty or (now - metadata['created']) >
-                timedelta(seconds=CACHE_MAX_AGE)) \
-                and not metadata['reflecting']:
+        if ((force or metadata.isempty or
+                (now - metadata['created']) > timedelta(seconds=CACHE_MAX_AGE))
+                and not metadata['reflecting']):
             if noisy:
                 print "Reflecting metadata..."
             metadata['reflecting'] = True
-
-            def printtime(x):
-                pass
-                #print "completed in %.2s" % (time.time() - t0)
-            self.pool.apply_async(self.reflect_metadata,
-                                  (db,), callback=printtime)
+            self.pool.apply_async(self.reflect_metadata, (db,))
         return metadata
+
+    def get_db_key(self, url):
+        """Minimal unique key for describing a db connection."""
+        return str(URL(url.drivername, url.username, host=url.host,
+                   port=url.port, database=url.database))
+
+    def has_metadata(self, db_key):
+        """Return True if we have some stored data for db_key."""
+        res = self.db.execute('select count(*) as c from dbtable '
+                              'where db_key = :db_key', db_key=db_key)
+        return bool(res.fetchone().c)
 
     def reflect_metadata(self, target_db):
         db_key = self.get_db_key(target_db.url)
         table_names = target_db.table_names()
-        self.pool.map(
-            self.reflect_table,
-            ((target_db, db_key, tablename) for tablename
-             in sorted(table_names)))
+        for table_name in sorted(table_names):
+            self.reflect_table(target_db, db_key, table_name)
         self.metadata[db_key]['created'] = datetime.datetime.now()
         self.metadata[db_key]['reflecting'] = False
 
-        # write to database.
-        # self.write_all(db_key)
-
-    def reflect_table(self, arg):
-        target_db, db_key, tablename = arg  # XXX: this sux
-        metadata = self.sa_metadata  # XXX: not threadsafe
-        self.sa_metadata.bind = target_db
-        t = sa.Table(tablename, metadata, autoload=True)
+    def reflect_table(self, target_db, db_key, tablename):
+        md = self.metadata[db_key]
+        md.sa_metadata.bind = target_db
+        t = sa.Table(tablename, md.sa_metadata, autoload=True)
         tablename = t.name.lower()
-        self.metadata[db_key]['tables'].add(tablename)
-        self.metadata[db_key].isempty = False
+        md.tables.add(tablename)
+        md.isempty = False
         fks = {}
         for col in t.columns:
             fieldname = col.name.lower()
             dottedname = tablename + '.' + fieldname
-            self.metadata[db_key]['fields'].add(fieldname)
-            self.metadata[db_key]['dottedfields'].add(dottedname)
-            self.metadata[db_key]['types'][dottedname] = str(col.type)
+            md.fields.add(fieldname)
+            md.dottedfields.add(dottedname)
+            md.types[dottedname] = str(col.type)
             constraint_name, pos, reftable, refcolumn = \
                 self._get_foreign_key_info(col)
             if refcolumn:
-                #print '%s.%s -> %s.%s' % (t.name, col.name,
-                                          #reftable, refcolumn)
                 if constraint_name not in fks:
                     fks[constraint_name] = {
                         'table': tablename,
@@ -305,218 +287,27 @@ class CompletionDataAccessor(object):
                     }
                 fks[constraint_name]['columns'].append(col.name)
                 fks[constraint_name]['referenced_columns'].append(refcolumn)
-        all_fks = self.metadata[db_key].foreign_keys
+        all_fks = md.foreign_keys
         for name, dct in fks.iteritems():
             fk = ForeignKey(dct['table'], dct['columns'],
-                            dct['referenced_table'], dct['referenced_columns'])
+                            dct['referenced_table'],
+                            dct['referenced_columns'])
             try:
                 all_fks.remove(fk)
             except ValueError:
                 pass
             all_fks.append(fk)
         pk_cols = [c.name for c in t.primary_key.columns]
-        self.metadata[db_key].primary_keys.append(PrimaryKey(t.name, pk_cols))
-        write_queue.put_nowait((db_key, t))
-
-    def get_db_key(self, url):
-        '''minimal unique key for describing a db connection'''
-        return str(URL(url.drivername, url.username, host=url.host,
-                   port=url.port, database=url.database))
-
-    def read(self, db_key):
-        fks = {}
-        pks = {}
-        result = self.db.execute("""
-            select
-                t.db_key,
-                t.name as tablename,
-                f.name as fieldname,
-                f.type as type,
-                constraint_name,
-                position_in_constraint,
-                referenced_table,
-                referenced_column,
-                f.primary_key
-            from dbtable t inner join dbfield f
-                on f.table_id = t.id
-            where
-                t.db_key = :db_key
-        """, dict(db_key=db_key))
-        for r in result:
-            self.metadata[db_key].isempty = False
-            self.metadata[db_key]['tables'].add(r.tablename)
-            self.metadata[db_key]['fields'].add(r.fieldname)
-            dottedfield = '%s.%s' % (r.tablename, r.fieldname)
-            self.metadata[db_key]['dottedfields'].add(dottedfield)
-            self.metadata[db_key]['types'][dottedfield] = r.type
-            if r.primary_key:
-                if r.tablename not in pks:
-                    pk = PrimaryKey(r.tablename, [])
-                    pks[r.tablename] = pk
-                    self.metadata[db_key].primary_keys.append(pk)
-                pks[r.tablename].columns.append(r.fieldname)
-
-            if r.constraint_name:
-                if r.constraint_name not in fks:
-                    fks[r.constraint_name] = {
-                        'table': r.tablename,
-                        'columns': [],
-                        'referenced_table': r.referenced_table,
-                        'referenced_columns': []
-                    }
-                fks[r.constraint_name]['columns'].append(r.fieldname)
-                fks[r.constraint_name]['referenced_columns'].append(
-                    r.referenced_column)
-        all_fks = []
-        for name, dct in fks.iteritems():
-            fk = ForeignKey(dct['table'],
-                            dct['columns'],
-                            dct['referenced_table'],
-                            dct['referenced_columns'])
-            all_fks.append(fk)
-        self.metadata[db_key]['foreign_keys'] = all_fks
-        result = self.db.execute("select max(created) as created from dbtable "
-                                 "where db_key = :db_key",
-                                 dict(db_key=db_key)).fetchone()
-        if result[0]:
-            self.metadata[db_key]['created'] = parser.parse(result[0])
-        else:
-            self.metadata[db_key]['created'] = datetime.datetime.now()
-
-    def create_schema(self, sqconn):
-            sqconn.execute("""
-                create table if not exists dbtable (
-                    id integer primary key,
-                    db_key text not null,
-                    name text not null,
-                    created datetime not null default current_timestamp,
-                    constraint db_table_unique
-                        unique (db_key, name)
-                        on conflict rollback
-                )
-            """)
-            sqconn.execute("""
-                create table if not exists dbfield (
-                    id integer primary key,
-                    table_id integer not null
-                        references dbtable(id)
-                        on delete cascade
-                        on update cascade,
-                    name text not null,
-                    type text,
-                    constraint_name text,
-                    position_in_constraint int,
-                    referenced_table text,
-                    referenced_column text,
-                    primary_key boolean,
-                    constraint db_field_unique
-                        unique (table_id, name)
-                        on conflict rollback
-                )
-            """)
-
-    def flush(self):
-        self.pool.terminate()
-        self.pool.join()
-        self.metadata = defaultdict(self._meta)
-        self.delete_schema()
-        self.create_schema(self.db)
-        self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
-
-    def delete_schema(self):
-        self.db.execute("""drop table dbfield""")
-        self.db.execute("""drop table dbtable""")
-
-    def tables(self, db):
-        db_key = self.get_db_key(db.url)
-        return self.metadata[db_key]['tables']
-
-    def fields(self, db, table=None):
-        if table:
-            cols = []
-            for df in self.dottedfields(db):
-                tbl, fld = df.split('.')
-                if tbl == table:
-                    cols.append(fld)
-            return cols
-        db_key = self.get_db_key(db.url)
-        return self.metadata[db_key]['fields']
-
-    def dottedfields(self, db, table=None):
-        db_key = self.get_db_key(db.url)
-        all_fields = self.metadata[db_key]['dottedfields']
-        if table:
-            fields = []
-            for df in all_fields:
-                tbl, fld = df.split('.')
-                if tbl == table:
-                    fields.append(fld)
-            all_fields = fields
-        return all_fields
-
-    def reflecting(self, db):
-        db_key = self.get_db_key(db.url)
-        return self.metadata[db_key]['reflecting']
-
-    def types(self, db):
-        return self.metadata[self.get_db_key(db.url)]['types']
-
-    def write_all(self, db_key):
-        with sqlite3.connect(self.dbfile) as sqconn:
-            for dottedname in self.metadata[db_key]['dottedfields']:
-                tablename, fieldname = dottedname.split('.', 1)
-                type_ = self.metadata[db_key]['types'].get(dottedname, '')
-                self.write(sqconn, db_key, tablename, fieldname, type_)
-
-    def write(self, sqconn, db_key, table, field, type_=''):
-        res = sqconn.execute(
-            "select id from dbtable where db_key=:db_key and name=:table",
-            dict(db_key=db_key, table=table))
-        table_id = None
-        row = res.fetchone()
-        if row is not None:
-            table_id = row[0]
-        else:
-            res = sqconn.execute(
-                """insert into dbtable(db_key, name) values (
-                    :db_key, :table)""",
-                dict(db_key=db_key, table=table))
-            table_id = res.lastrowid
-        try:
-            sqconn.execute(
-                """insert into dbfield(table_id, name, type) values (
-                    :table_id, :field, :type)""",
-                dict(table_id=table_id, field=field, type=type_))
-        except sqlite3.IntegrityError:  # exists
-            sqconn.execute(
-                """
-                update dbfield set
-                    type = :type
-                where
-                    table_id = :table_id
-                    and name = :field""",
-                dict(table_id=table_id, field=field, type=type_))
-
-    def _get_foreign_key_info(self, column):
-        constraint_name = None
-        pos = None
-        reftable = None
-        refcolumn = None
-        if len(column.foreign_keys):
-            #  XXX: for now we pretend that there can only be one.
-            fk = list(column.foreign_keys)[0]
-            if fk.constraint:
-                constraint_name = fk.constraint.name
-                reftable, refcolumn = fk.target_fullname.split('.')
-                pos = 1  # XXX: this is incorrect
-        return constraint_name, pos, reftable, refcolumn
+        md.primary_keys.append(PrimaryKey(t.name, pk_cols))
+        self.write_table(self.db, db_key, t)
 
     def write_table(self, sqconn, db_key, table):
-        """
-        Writes information about a table to an sqlite db store.
+        """Writes information about a table to an sqlite db store.
 
         Args:
-            table: an sa.Table instance
+            sqcon: dbapi cursor to the metadata storage db.
+            db_key: Key for the db that `table` belongs to.
+            table: An sa.Table instance
         """
         res = sqconn.execute(
             "select id from dbtable where db_key=:db_key and name=:table",
@@ -589,42 +380,124 @@ class CompletionDataAccessor(object):
                         primary_key=table.primary_key.contains_column(column),
                         refcolumn=refcolumn))
 
+    def read(self, db_key):
+        fks = {}
+        pks = {}
+        result = self.db.execute("""
+            select
+                t.db_key,
+                t.name as tablename,
+                f.name as fieldname,
+                f.type as type,
+                constraint_name,
+                position_in_constraint,
+                referenced_table,
+                referenced_column,
+                f.primary_key
+            from dbtable t inner join dbfield f
+                on f.table_id = t.id
+            where
+                t.db_key = :db_key
+        """, dict(db_key=db_key))
+        for r in result:
+            self.metadata[db_key].isempty = False
+            self.metadata[db_key]['tables'].add(r.tablename)
+            self.metadata[db_key]['fields'].add(r.fieldname)
+            dottedfield = '%s.%s' % (r.tablename, r.fieldname)
+            self.metadata[db_key]['dottedfields'].add(dottedfield)
+            self.metadata[db_key]['types'][dottedfield] = r.type
+            if r.primary_key:
+                if r.tablename not in pks:
+                    pk = PrimaryKey(r.tablename, [])
+                    pks[r.tablename] = pk
+                    self.metadata[db_key].primary_keys.append(pk)
+                pks[r.tablename].columns.append(r.fieldname)
 
-"""producer/consumer communication for
-    metadata reading / sqlite writing threads"""
-write_queue = Queue.Queue()
+            if r.constraint_name:
+                if r.constraint_name not in fks:
+                    fks[r.constraint_name] = {
+                        'table': r.tablename,
+                        'columns': [],
+                        'referenced_table': r.referenced_table,
+                        'referenced_columns': []
+                    }
+                fks[r.constraint_name]['columns'].append(r.fieldname)
+                fks[r.constraint_name]['referenced_columns'].append(
+                    r.referenced_column)
+        all_fks = []
+        for name, dct in fks.iteritems():
+            fk = ForeignKey(dct['table'],
+                            dct['columns'],
+                            dct['referenced_table'],
+                            dct['referenced_columns'])
+            all_fks.append(fk)
+        self.metadata[db_key]['foreign_keys'] = all_fks
+        result = self.db.execute("select max(created) as created from dbtable "
+                                 "where db_key = :db_key",
+                                 dict(db_key=db_key)).fetchone()
+        if result[0]:
+            self.metadata[db_key]['created'] = parser.parse(result[0])
+        else:
+            self.metadata[db_key]['created'] = datetime.datetime.now()
 
+    def create_schema(self, sqconn):
+        sqconn.execute("""
+            create table if not exists dbtable (
+                id integer primary key,
+                db_key text not null,
+                name text not null,
+                created datetime not null default current_timestamp,
+                constraint db_table_unique
+                    unique (db_key, name)
+                    on conflict rollback
+            )
+        """)
+        sqconn.execute("""
+            create table if not exists dbfield (
+                id integer primary key,
+                table_id integer not null
+                    references dbtable(id)
+                    on delete cascade
+                    on update cascade,
+                name text not null,
+                type text,
+                constraint_name text,
+                position_in_constraint int,
+                referenced_table text,
+                referenced_column text,
+                primary_key boolean,
+                constraint db_field_unique
+                    unique (table_id, name)
+                    on conflict rollback
+            )
+        """)
 
-class MetadataSavingThread(threading.Thread):
-    daemon = True
-    stop_now = False
+    def flush(self):
+        self.pool.terminate()
+        self.pool.join()
+        self.metadata = defaultdict(MetaData)
+        self.delete_schema()
+        self.create_schema(self.db)
+        self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
 
-    def __init__(self, metadata):
-        """
-        Constructor
+    def delete_schema(self):
+        self.db.execute("""drop table dbfield""")
+        self.db.execute("""drop table dbtable""")
 
-        Args:
-            metadata: instance of CompletionDataAccessor
-        """
-        super(MetadataSavingThread, self).__init__()
-        self.metadata = metadata
-        atexit.register(self.stop)
+    def reflecting(self, db):
+        db_key = self.get_db_key(db.url)
+        return self.metadata[db_key]['reflecting']
 
-    def run(self):
-        try:
-            while True:
-                db_key, table = write_queue.get()
-                if self.stop_now:
-                    return
-                self.metadata.write_table(self.metadata.db, db_key, table)
-        except Exception as e:
-            print(("The metadata saving thread hit an unexpected error (%s)."
-                   "Metadata will not be written to the database.") % repr(e))
-
-    def stop(self):
-        """This can be called from the main thread to safely stop this thread.
-
-        """
-        self.stop_now = True
-        write_queue.put_nowait((None, None))  # XXX: this seems very lame...
-        self.join()
+    def _get_foreign_key_info(self, column):
+        constraint_name = None
+        pos = None
+        reftable = None
+        refcolumn = None
+        if len(column.foreign_keys):
+            #  XXX: for now we pretend that there can only be one.
+            fk = list(column.foreign_keys)[0]
+            if fk.constraint:
+                constraint_name = fk.constraint.name
+                reftable, refcolumn = fk.target_fullname.split('.')
+                pos = 1  # XXX: this is incorrect
+        return constraint_name, pos, reftable, refcolumn
