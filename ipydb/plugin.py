@@ -16,15 +16,13 @@ import sys
 from IPython.core.plugin import Plugin
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
-from utils import termsize, multi_choice_prompt
+from utils import multi_choice_prompt
 
+import asciitable
+from asciitable import FakedResult, PivotResultSet
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
-
-
-def isublists(l, n):
-    return itertools.izip_longest(*[iter(l)] * n)
 
 
 class Pager(object):
@@ -39,37 +37,6 @@ class Pager(object):
                 exc_val.args == (32, 'Broken pipe'):
             return True  # user quit pager
         self.out.close()
-
-
-class FakedResult(object):
-    """Utility for making an iterable look like an sqlalchemy ResultProxy."""
-
-    def __init__(self, items, headings):
-        self.items = items
-        self.headings = headings
-
-    def __iter__(self):
-        return iter(self.items)
-
-    def keys(self):
-        return self.headings
-
-
-class PivotResultSet(object):
-    """Pivot a result set into an iterable of (fieldname, value)."""
-
-    def __init__(self, rs):
-        self.rs = rs
-
-    def __iter__(self):
-        # Note: here we 'ovewrite' ambiguous / duplicate keys
-        # is this a bad thing? probably not?
-        # r.items() throws exceptions from SA if there are ambiguous
-        # columns in the select statement.
-        return (zip(r.keys(), r.values()) for r in self.rs)
-
-    def keys(self):
-        return ['Field', 'Value']
 
 
 class SqlPlugin(Plugin):
@@ -407,9 +374,10 @@ class SqlPlugin(Plugin):
                     col = '*%s' % col
                 items.append((col, type_))
             items.sort()
-            self.format_result_pretty(
+            asciitable.draw(
                 FakedResult([items], 'Field Type'.split()),
-                out, paginate=False)
+                out, paginate=False,
+                max_fieldsize=self.max_fieldsize)
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
             pk = self.comp_data.get_primarykey(table)
@@ -531,68 +499,9 @@ class SqlPlugin(Plugin):
             if self.sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
-                self.format_result_pretty(cursor, out=out,
-                                          paginate=paginate)
-
-    def format_result_pretty(self, cursor, out=sys.stdout, paginate=True):
-        """Render an SQL result set as an ascii-table.
-
-        Renders an SQL result set to `out`, some file-like object.
-        Assumes that we can determine the current terminal height and
-        width via the termsize module.
-
-        Args:
-            cursor: cursor-like object. See: render_result()
-            out: file-like object.
-
-        """
-
-        def heading_line(sizes):
-            for size in sizes:
-                out.write('+' + '-' * (size + 2))
-            out.write('+\n')
-
-        def draw_headings(headings, sizes):
-            heading_line(sizes)
-            for idx, size in enumerate(sizes):
-                fmt = '| %%-%is ' % size
-                out.write((fmt % headings[idx]))
-            out.write('|\n')
-            heading_line(sizes)
-
-        cols, lines = termsize()
-        headings = cursor.keys()
-        heading_sizes = map(lambda x: len(x), headings)
-        if paginate:
-            cursor = isublists(cursor, lines - 4)
-        for screenrows in cursor:
-            sizes = heading_sizes[:]
-            for row in screenrows:
-                if row is None:
-                    break
-                for idx, value in enumerate(row):
-                    if not isinstance(value, basestring):
-                        value = str(value)
-                    size = max(sizes[idx], len(value))
-                    sizes[idx] = min(size, self.max_fieldsize)
-            draw_headings(headings, sizes)
-            for rw in screenrows:
-                if rw is None:
-                    break  # from isublists impl
-                for idx, size in enumerate(sizes):
-                    fmt = '| %%-%is ' % size
-                    value = rw[idx]
-                    if not isinstance(value, basestring):
-                        value = str(value)
-                    if len(value) > self.max_fieldsize:
-                        value = value[:self.max_fieldsize - 5] + '[...]'
-                    value = value.replace('\n', '^')
-                    value = value.replace('\r', '^').replace('\t', ' ')
-                    out.write((fmt % value))
-                out.write('|\n')
-            if not paginate:
-                heading_line(sizes)
-                out.write('\n')
+                asciitable.draw(cursor, out=out,
+                                paginate=paginate,
+                                max_fieldsize=self.max_fieldsize)
 
     def format_result_csv(self, cursor, out=sys.stdout):
         """Render an sql result set in CSV format.
