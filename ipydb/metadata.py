@@ -498,6 +498,8 @@ class CompletionDataAccessor(object):
             fk = list(column.foreign_keys)[0]
             if fk.constraint:
                 constraint_name = fk.constraint.name
-                reftable, refcolumn = fk.target_fullname.split('.')
+                bits = fk.target_fullname.split('.')
+                reftable = bits.pop()
+                refcolumn = bits.pop()
                 pos = 1  # XXX: this is incorrect
         return constraint_name, pos, reftable, refcolumn
