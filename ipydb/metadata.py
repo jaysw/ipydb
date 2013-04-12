@@ -20,6 +20,8 @@ import sqlalchemy as sa
 from sqlalchemy.engine.url import URL
 from IPython.utils.path import locate_profile
 
+from ipydb.utils import timer
+
 CACHE_MAX_AGE = 60 * 10  # invalidate connection metadata if
                          # it is older than CACHE_MAX_AGE
 
@@ -255,21 +257,23 @@ class CompletionDataAccessor(object):
 
     def reflect_metadata(self, target_db):
         db_key = self.get_db_key(target_db.url)
-        table_names = target_db.table_names()
-        for table_name in sorted(table_names):
-            self.reflect_table(target_db, db_key, table_name)
+        md = self.metadata[db_key]
+        md.sa_metadata.bind = target_db
+        with timer('reflect sa metadata'):
+            md.sa_metadata.reflect()
+        with timer('store metadata'):
+            for table in md.sorted_tables:
+                self.reflect_table(target_db, db_key, table)
         self.metadata[db_key]['created'] = datetime.datetime.now()
         self.metadata[db_key]['reflecting'] = False
 
-    def reflect_table(self, target_db, db_key, tablename):
+    def reflect_table(self, target_db, db_key, table):
+        db_key = self.get_db_key(target_db.url)
         md = self.metadata[db_key]
-        md.sa_metadata.bind = target_db
-        t = sa.Table(tablename, md.sa_metadata, autoload=True)
-        tablename = t.name.lower()
-        md.tables.add(tablename)
+        tablename = table.name.lower()
         md.isempty = False
         fks = {}
-        for col in t.columns:
+        for col in table.columns:
             fieldname = col.name.lower()
             dottedname = tablename + '.' + fieldname
             md.fields.add(fieldname)
@@ -297,9 +301,9 @@ class CompletionDataAccessor(object):
             except ValueError:
                 pass
             all_fks.append(fk)
-        pk_cols = [c.name for c in t.primary_key.columns]
-        md.primary_keys.append(PrimaryKey(t.name, pk_cols))
-        self.write_table(self.db, db_key, t)
+        pk_cols = [c.name for c in table.primary_key.columns]
+        md.primary_keys.append(PrimaryKey(table.name, pk_cols))
+        self.write_table(self.db, db_key, table)
 
     def write_table(self, sqconn, db_key, table):
         """Writes information about a table to an sqlite db store.
