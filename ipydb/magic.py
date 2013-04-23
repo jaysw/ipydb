@@ -85,6 +85,13 @@ class SqlMagics(Magics):
         return self.ipydb.get_engine()
 
     @line_magic
+    def debug(self, arg):
+        """Turn on debugging mode for ipydb."""
+        self.ipydb.debug = True
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+
+    @line_magic
     def begin(self, arg):
         """Start a transaction."""
         self.ipydb.begin()
@@ -370,6 +377,9 @@ class SqlMagics(Magics):
     @line_magic
     def rereflect(self, arg):
         """Force re-loading of completion metadata."""
+        if not self.ipydb.connected:
+            print self.ipydb.not_connected_message
+            return
         self.ipydb.completion_accessor.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
 

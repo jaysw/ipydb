@@ -12,6 +12,7 @@ from collections import defaultdict, namedtuple
 import datetime
 from datetime import timedelta
 from dateutil import parser
+import logging
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import os
@@ -24,6 +25,8 @@ from ipydb.utils import timer
 
 CACHE_MAX_AGE = 60 * 10  # invalidate connection metadata if
                          # it is older than CACHE_MAX_AGE
+
+log = logging.getLogger(__name__)
 
 fkclass = namedtuple('ForeignKey', 'table columns reftable refcolumns')
 
@@ -229,17 +232,17 @@ class CompletionDataAccessor(object):
     def get_metadata(self, db, noisy=False, force=False):
         db_key = self.get_db_key(db.url)
         metadata = self.metadata[db_key]
-        if metadata.isempty:  # XXX: what if schema exists, but is empty?!
+        if metadata.isempty and not force:
             has_metadata = self.has_metadata(db_key)
             if has_metadata:
+                log.debug('Reading metadata from sqlite')
                 self.read(db_key)  # XXX is this slow? make async?
                 metadata.isempty = False
         now = datetime.datetime.now()
         if ((force or metadata.isempty or
                 (now - metadata['created']) > timedelta(seconds=CACHE_MAX_AGE))
                 and not metadata['reflecting']):
-            if noisy:
-                print "Reflecting metadata..."
+            log.debug('Reflecting db data from SA')
             metadata['reflecting'] = True
             self.pool.apply_async(self.reflect_metadata, (db,))
         return metadata
@@ -259,17 +262,19 @@ class CompletionDataAccessor(object):
         db_key = self.get_db_key(target_db.url)
         md = self.metadata[db_key]
         md.sa_metadata.bind = target_db
-        with timer('reflect sa metadata'):
+        with timer('sa reflect', log=log):
             md.sa_metadata.reflect()
-        with timer('store metadata'):
-            for table in md.sorted_tables:
+        for table in md.sa_metadata.sorted_tables:
+            with timer('reflect and save %s' % table.name, log=log):
                 self.reflect_table(target_db, db_key, table)
+                md.tables.add(table.name)
         self.metadata[db_key]['created'] = datetime.datetime.now()
         self.metadata[db_key]['reflecting'] = False
 
     def reflect_table(self, target_db, db_key, table):
         db_key = self.get_db_key(target_db.url)
         md = self.metadata[db_key]
+        log.debug('reflect_table writing to md instance: %r', md)
         tablename = table.name.lower()
         md.isempty = False
         fks = {}

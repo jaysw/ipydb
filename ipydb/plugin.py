@@ -10,6 +10,7 @@ from ConfigParser import DuplicateSectionError
 import csv
 import fnmatch
 import itertools
+import logging
 import os
 import sys
 
@@ -24,6 +25,7 @@ from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
 
+log = logging.getLogger(__name__)
 
 class Pager(object):
     def __init__(self):

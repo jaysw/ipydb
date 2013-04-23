@@ -29,15 +29,20 @@ class timer(object):
         with(timer("doing something")):
             time.sleep(10)
     """
-    def __init__(self, name='timer'):
+    def __init__(self, name='timer', log=None):
         self.name = name
+        self.log = log
 
     def __enter__(self):
         self.start = time.time()
 
     def __exit__(self, ty, val, tb):
         end = time.time()
-        print("%s : %0.3f ms" % (self.name, (end - self.start) * 1000))
+        msg = "%s : %0.3f ms" % (self.name, (end - self.start) * 1000)
+        if self.log and hasattr(self.log, 'debug'):
+            self.log.debug(msg)
+        else:
+            print(msg)
         return False
 
 
