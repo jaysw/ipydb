@@ -216,7 +216,7 @@ class SqlMagics(Magics):
         'statements from a file'
 
     @line_magic
-    def show_tables(self, param=''):
+    def tables(self, param=''):
         """Show a list of tables for the current db connection.
 
         Usage: %show_tables [GLOB1 GLOB2...]
@@ -232,7 +232,7 @@ class SqlMagics(Magics):
         self.ipydb.show_tables(*param.split())
 
     @line_magic
-    def show_fields(self, param=''):
+    def fields(self, param=''):
         """Show a list of fields and data types for the given table.
 
         Usage: %show_fields TABLE_GLOB[.FIELD_GLOB] [GLOB2...]
@@ -254,7 +254,7 @@ class SqlMagics(Magics):
         self.ipydb.describe(*param.split())
 
     @line_magic
-    def show_sql(self, param=''):
+    def showsql(self, param=''):
         """Toggle SQL statement logging from SqlAlchemy."""
         if self.ipydb.show_sql:
             level = logging.WARNING
@@ -266,7 +266,7 @@ class SqlMagics(Magics):
         print 'SQL logging %s' % ('on' if self.ipydb.show_sql else 'off')
 
     @line_magic
-    def what_references(self, param=""):
+    def references(self, param=""):
         """Shows a list of all foreign keys that reference the given field.
 
         Usage: %what_references TABLE_NAME[.FIELD_NAME]
@@ -284,7 +284,7 @@ class SqlMagics(Magics):
         self.ipydb.what_references(param)
 
     @line_magic
-    def show_joins(self, param=""):
+    def joins(self, param=""):
         """Shows a list of all joins involving a given table.
 
         Usage: %show_joins TABLE_NAME
@@ -295,7 +295,7 @@ class SqlMagics(Magics):
         self.ipydb.show_joins(param)
 
     @line_magic
-    def show_fks(self, param=""):
+    def fks(self, param=""):
         """Shows a list of foreign keys for the given table.
 
         Usage: %show_fks TABLE_NAME
@@ -349,7 +349,7 @@ class SqlMagics(Magics):
         self.ipydb.connect(param)
 
     @line_magic
-    def connect_url(self, param):
+    def connecturl(self, param):
         """Connect to a database using an SqlAlchemy style connection URL.
 
         Usage: %connect_url drivername://username:password@host/database
@@ -366,7 +366,7 @@ class SqlMagics(Magics):
         self.ipydb.connect_url(param)
 
     @line_magic
-    def flush_metadata(self, arg):
+    def flushmetadata(self, arg):
         """Flush all ipydb's schema caches.
 
         Delete ipydb's in-memory cache of reflected schema information.
@@ -384,7 +384,7 @@ class SqlMagics(Magics):
             self.ipydb.engine, force=True, noisy=True)
 
     @line_magic
-    def save_connection(self, arg):
+    def saveconnection(self, arg):
         """Save current connection to ~/.db-connections file.
 
         Usage: %save_connection NICKNAME
