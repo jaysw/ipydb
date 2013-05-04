@@ -399,6 +399,13 @@ class SqlPlugin(Plugin):
                 out.write('  %s\n' % str(fk))
             if fk is None:
                 out.write('  (None Found)')
+            out.write('\n\nReferences to %s\n' % table)
+            out.write('--------------' + '-' * len(table) + '\n')
+            fks = self.comp_data.fields_referencing(table)
+            for fk in fks:
+                out.write('  ' + str(fk) + '\n')
+            if not fks:
+                out.write('  (None found)\n')
 
     def show_fields(self, *globs):
         """
@@ -453,7 +460,7 @@ class SqlPlugin(Plugin):
         for fk in fks:
             print fk.as_join()
 
-    def what_references(self, arg):
+    def what_references(self, arg, out=sys.stdout):
         """Show fields referencing the input table/field arg.
 
         If arg is a tablename, then print fields which reference
@@ -464,7 +471,7 @@ class SqlPlugin(Plugin):
         Args:
             arg: Either a table name or a [table.field] name"""
         if not self.connected:
-            print self.not_connected_message
+            out.write(self.not_connected_message + '\n')
             return
         bits = arg.split('.', 1)
         tablename = bits[0]
@@ -472,7 +479,7 @@ class SqlPlugin(Plugin):
         fks = self.comp_data.fields_referencing(
             tablename, fieldname)
         for fk in fks:
-            print fk
+            out.write(str(fk) + '\n')
 
     def show_fks(self, table):
         """Show foreign keys for the given table
