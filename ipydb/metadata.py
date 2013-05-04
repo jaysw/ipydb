@@ -318,76 +318,82 @@ class CompletionDataAccessor(object):
             db_key: Key for the db that `table` belongs to.
             table: An sa.Table instance
         """
-        res = sqconn.execute(
-            "select id from dbtable where db_key=:db_key and name=:table",
-            dict(db_key=db_key, table=table.name))
-        table_id = None
-        row = res.fetchone()
-        if row is not None:
-            table_id = row[0]
-        else:
-            res = sqconn.execute(
-                """insert into dbtable(db_key, name) values (
-                    :db_key, :table)""",
+        with sqconn.begin() as sqtx:
+            res = sqtx.execute(
+                "select id from dbtable where db_key=:db_key and name=:table",
                 dict(db_key=db_key, table=table.name))
-            table_id = res.lastrowid
-        for column in table.columns:
-            constraint_name, pos, reftable, refcolumn = \
-                self._get_foreign_key_info(column)
-            try:
-                sqconn.execute(
-                    """
-                        insert into dbfield(
-                            table_id,
-                            name,
-                            type,
-                            constraint_name,
-                            position_in_constraint,
-                            referenced_table,
-                            referenced_column,
-                            primary_key
-                        ) values (
-                            :table_id,
-                            :field,
-                            :type_,
-                            :constraint_name,
-                            :pos,
-                            :reftable,
-                            :refcolumn,
-                            :primary_key
-                        )
-                    """,
-                    dict(
-                        table_id=table_id,
-                        field=column.name,
-                        type_=str(column.type),
-                        constraint_name=constraint_name,
-                        pos=pos,
-                        reftable=reftable,
-                        refcolumn=refcolumn,
-                        primary_key=table.primary_key.contains_column(column)))
-            except sa.exc.IntegrityError:  # exists
-                sqconn.execute(
-                    """
-                    update dbfield set
-                        type = :type,
-                        constraint_name = :constraint_name,
-                        position_in_constraint = :pos,
-                        referenced_table = :reftable,
-                        referenced_column = :refcolumn,
-                        primary_key = :primary_key
-                    where
-                        table_id = :table_id
-                        and name = :field""",
-                    dict(
-                        table_id=table_id,
-                        field=column.name,
-                        type=str(column.type),
-                        constraint_name=constraint_name,
-                        pos=pos,
-                        reftable=reftable,
-                        primary_key=table.primary_key.contains_column(column),
-                        refcolumn=refcolumn))
+            table_id = None
+            row = res.fetchone()
+            if row is not None:
+                table_id = row[0]
+            else:
+                res = sqtx.execute(
+                    """insert into dbtable(db_key, name) values (
+                        :db_key, :table)""",
+                    dict(db_key=db_key, table=table.name))
+                table_id = res.lastrowid
+            for column in table.columns:
+                constraint_name, pos, reftable, refcolumn = \
+                    self._get_foreign_key_info(column)
+                column_id = None
+                res = sqtx.execute(
+                    "select id from dbfield where table_id=:table_id and name=:column_name",
+                    dict(table_id=table_id, column_name=column.name))
+                row = res.fetchone()
+                if row is not None:
+                    column_id = row.id
+                if column_id is None:
+                    sqtx.execute(
+                        """
+                            insert into dbfield(
+                                table_id,
+                                name,
+                                type,
+                                constraint_name,
+                                position_in_constraint,
+                                referenced_table,
+                                referenced_column,
+                                primary_key
+                            ) values (
+                                :table_id,
+                                :field,
+                                :type_,
+                                :constraint_name,
+                                :pos,
+                                :reftable,
+                                :refcolumn,
+                                :primary_key
+                            )
+                        """,
+                        dict(
+                            table_id=table_id,
+                            field=column.name,
+                            type_=str(column.type),
+                            constraint_name=constraint_name,
+                            pos=pos,
+                            reftable=reftable,
+                            refcolumn=refcolumn,
+                            primary_key=table.primary_key.contains_column(column)))
+                else:
+                    sqtx.execute(
+                        """
+                        update dbfield set
+                            type = :type,
+                            constraint_name = :constraint_name,
+                            position_in_constraint = :pos,
+                            referenced_table = :reftable,
+                            referenced_column = :refcolumn,
+                            primary_key = :primary_key
+                        where
+                            id = :column_id""",
+                        dict(
+                            column_id=column_id,
+                            type=str(column.type),
+                            constraint_name=constraint_name,
+                            pos=pos,
+                            reftable=reftable,
+                            primary_key=table.primary_key.contains_column(column),
+                            refcolumn=refcolumn))
 
     def read(self, db_key):
         fks = {}
@@ -508,7 +514,7 @@ class CompletionDataAccessor(object):
             if fk.constraint:
                 constraint_name = fk.constraint.name
                 bits = fk.target_fullname.split('.')
-                reftable = bits.pop()
                 refcolumn = bits.pop()
+                reftable = bits.pop()
                 pos = 1  # XXX: this is incorrect
         return constraint_name, pos, reftable, refcolumn
