@@ -12,7 +12,7 @@ Usage
     Automagic is ON, % prefix IS NOT needed for line magics.
 
     In [3] : connect_url mysql://user:pass@localhost/employees
-    In [4] localhost/employees: show_tables
+    In [4] localhost/employees: tables
     departments
     dept_emp
     dept_manager
@@ -20,7 +20,7 @@ Usage
     salaries
     titles
 
-    In [5] localhost/employees: show_fields departments
+    In [5] localhost/employees: fields departments
     departments
     -----------
         dept_name                          VARCHAR(40)
@@ -73,7 +73,7 @@ the `connect_url` magic function, or, using a connection 'nickname' with the `co
 
 You can connect to a database using an SqlAlchemy style url as follows:
 
-    %connect_url drivername://username:password@host/database
+    %connecturl drivername://username:password@host/database
 
 Some examples:
 
