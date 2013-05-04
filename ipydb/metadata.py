@@ -74,6 +74,7 @@ class MetaData(object):
         self._fields = set()
         self._dottedfields = set()
         self._types = dict()
+        self._nullable = dict()
         self._foreign_keys = []
         self._primary_keys = []
         self.sa_metadata = sa.MetaData()
@@ -195,6 +196,14 @@ class MetaData(object):
         self._types = value
 
     @property
+    def nullable(self):
+        return self._nullable
+
+    @nullable.setter
+    def nullable(self, value):
+        self._nullable = value
+
+    @property
     def foreign_keys(self):
         return self._foreign_keys
 
@@ -284,6 +293,7 @@ class CompletionDataAccessor(object):
             md.fields.add(fieldname)
             md.dottedfields.add(dottedname)
             md.types[dottedname] = str(col.type)
+            md.nullable[dottedname] = col.nullable
             constraint_name, pos, reftable, refcolumn = \
                 self._get_foreign_key_info(col)
             if refcolumn:
@@ -353,7 +363,8 @@ class CompletionDataAccessor(object):
                                 position_in_constraint,
                                 referenced_table,
                                 referenced_column,
-                                primary_key
+                                primary_key,
+                                nullable
                             ) values (
                                 :table_id,
                                 :field,
@@ -362,7 +373,8 @@ class CompletionDataAccessor(object):
                                 :pos,
                                 :reftable,
                                 :refcolumn,
-                                :primary_key
+                                :primary_key,
+                                :nullable
                             )
                         """,
                         dict(
@@ -373,7 +385,8 @@ class CompletionDataAccessor(object):
                             pos=pos,
                             reftable=reftable,
                             refcolumn=refcolumn,
-                            primary_key=table.primary_key.contains_column(column)))
+                            primary_key=table.primary_key.contains_column(column),
+                            nullable=column.nullable))
                 else:
                     sqtx.execute(
                         """
@@ -383,7 +396,8 @@ class CompletionDataAccessor(object):
                             position_in_constraint = :pos,
                             referenced_table = :reftable,
                             referenced_column = :refcolumn,
-                            primary_key = :primary_key
+                            primary_key = :primary_key,
+                            nullable = :nullable
                         where
                             id = :column_id""",
                         dict(
@@ -393,6 +407,7 @@ class CompletionDataAccessor(object):
                             pos=pos,
                             reftable=reftable,
                             primary_key=table.primary_key.contains_column(column),
+                            nullable=column.nullable,
                             refcolumn=refcolumn))
 
     def read(self, db_key):
@@ -408,7 +423,8 @@ class CompletionDataAccessor(object):
                 position_in_constraint,
                 referenced_table,
                 referenced_column,
-                f.primary_key
+                f.primary_key,
+                f.nullable
             from dbtable t inner join dbfield f
                 on f.table_id = t.id
             where
@@ -421,6 +437,7 @@ class CompletionDataAccessor(object):
             dottedfield = '%s.%s' % (r.tablename, r.fieldname)
             self.metadata[db_key]['dottedfields'].add(dottedfield)
             self.metadata[db_key]['types'][dottedfield] = r.type
+            self.metadata[db_key].nullable[dottedfield] = r.nullable
             if r.primary_key:
                 if r.tablename not in pks:
                     pk = PrimaryKey(r.tablename, [])
@@ -481,6 +498,7 @@ class CompletionDataAccessor(object):
                 referenced_table text,
                 referenced_column text,
                 primary_key boolean,
+                nullable boolean,
                 constraint db_field_unique
                     unique (table_id, name)
                     on conflict rollback

@@ -363,21 +363,23 @@ class SqlPlugin(Plugin):
         if not self.connected:
             print self.not_connected_message
             return
-        #self.show_fields(table)
         if table not in self.comp_data.tables:
             print "Table not found: %s" % table
             return
         pkhash = {pk.table: pk.columns for pk in self.comp_data.primary_keys}
         with self.pager() as out:
             items = []
+            nullable = self.comp_data.nullable
             for col in self.comp_data.get_fields(table):
-                type_ = self.comp_data.types.get('%s.%s' % (table, col), '???')
+                dottedname = '%s.%s' % (table, col)
+                isnull = 'NULL' if nullable.get(dottedname) else 'NOT NULL'
+                type_ = self.comp_data.types.get(dottedname, '???')
                 if table in pkhash and col in pkhash[table]:  # tag primary key
                     col = '*%s' % col
-                items.append((col, type_))
+                items.append((col, type_, isnull))
             items.sort()
             asciitable.draw(
-                FakedResult([items], 'Field Type'.split()),
+                FakedResult([items], 'Field Type Nullable'.split()),
                 out, paginate=False,
                 max_fieldsize=self.max_fieldsize)
             out.write('Primary Key (*)\n')
@@ -424,6 +426,7 @@ class SqlPlugin(Plugin):
         with self.pager() as out:
             for match in sorted(matches):
                 tablename, fieldname = match.split('.', 1)
+                nullable = self.comp_data.nullable
                 if tablename in pkhash and fieldname in pkhash[tablename]:
                     fieldname = '*%s' % fieldname
                 if tablename != tprev:
@@ -431,9 +434,10 @@ class SqlPlugin(Plugin):
                         out.write("\n")
                     out.write(tablename + '\n')
                     out.write('-' * len(tablename) + '\n')
-                out.write("    %-35s%s\n" % (
+                out.write("    %-35s%s %s\n" % (
                     fieldname,
-                    self.comp_data.types.get(match, '[?]')))
+                    self.comp_data.types.get(match, '[?]'),
+                    'NULL' if nullable.get(match) else 'NOT NULL'))
                 tprev = tablename
             out.write('\n')
 
