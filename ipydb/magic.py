@@ -219,13 +219,13 @@ class SqlMagics(Magics):
     def tables(self, param=''):
         """Show a list of tables for the current db connection.
 
-        Usage: %show_tables [GLOB1 GLOB2...]
+        Usage: %tables [GLOB1 GLOB2...]
 
         Show tables matching GLOB if given
         Example usage:
-            %show_tables
+            %tables
                 : lists all avaiable tables for the current connection
-            %show_tables *p* *z*
+            %tables *p* *z*
                 : shows tables having a 'p' or a 'z' in their name
 
         """
@@ -235,14 +235,14 @@ class SqlMagics(Magics):
     def fields(self, param=''):
         """Show a list of fields and data types for the given table.
 
-        Usage: %show_fields TABLE_GLOB[.FIELD_GLOB] [GLOB2...]
+        Usage: %fields TABLE_GLOB[.FIELD_GLOB] [GLOB2...]
 
         Examples:
-            show_fields person
+            fields person
                 : shows fields for person table
-            show_fields person.*id*
+            fields person.*id*
                 : show fields for person table having `id` in their name
-            show_fields *person*.*id*
+            fields *person*.*id*
                 : show fields having id in their name for all tables
                   having 'person' in their name
         """
@@ -269,25 +269,25 @@ class SqlMagics(Magics):
     def references(self, param=""):
         """Shows a list of all foreign keys that reference the given field.
 
-        Usage: %what_references TABLE_NAME[.FIELD_NAME]
+        Usage: %references TABLE_NAME[.FIELD_NAME]
 
         If FIELD_NAME is ommitted, all fields in TABLE_NAME are checked as
         the target of a foreign key reference
 
         Examples:
-            what_references person.id
+            references person.id
                 : shows all fields having a foreign key referencing person.id
         """
         if not param.strip() or len(param.split()) != 1:
-            print "Usage: %what_references TABLE_NAME[.FIELD_NAME]"
+            print "Usage: %references TABLE_NAME[.FIELD_NAME]"
             return
-        self.ipydb.what_references(param)
+        self.ipydb.eferences(param)
 
     @line_magic
     def joins(self, param=""):
         """Shows a list of all joins involving a given table.
 
-        Usage: %show_joins TABLE_NAME
+        Usage: %joins TABLE_NAME
         """
         if not param.strip() or len(param.split()) != 1:
             print "Usage: %show_joins TABLE_NAME"
@@ -298,7 +298,7 @@ class SqlMagics(Magics):
     def fks(self, param=""):
         """Shows a list of foreign keys for the given table.
 
-        Usage: %show_fks TABLE_NAME
+        Usage: %fks TABLE_NAME
         """
         if not param.strip() or len(param.split()) != 1:
             print "Usage: %show_fks TABLE_NAME"
@@ -352,10 +352,10 @@ class SqlMagics(Magics):
     def connecturl(self, param):
         """Connect to a database using an SqlAlchemy style connection URL.
 
-        Usage: %connect_url drivername://username:password@host/database
+        Usage: %connecturl drivername://username:password@host/database
         Examples:
-            %connect_url mysql://root@localhost/mydatabase
-            %connect_url sqlite:///:memory:
+            %connecturl mysql://root@localhost/mydatabase
+            %connecturl sqlite:///:memory:
 
         Note: Before you can connect, you will need to install a python driver
         for your chosen database. For a list of recommended drivers,
@@ -387,7 +387,7 @@ class SqlMagics(Magics):
     def saveconnection(self, arg):
         """Save current connection to ~/.db-connections file.
 
-        Usage: %save_connection NICKNAME
+        Usage: %saveconnection NICKNAME
 
         After you have saved the connection, you can use the following to
         connect:
@@ -399,7 +399,7 @@ class SqlMagics(Magics):
             print self.ipydb.not_connected_message
             return
         if not len(arg.strip()):
-            print "Usage: %save_connection NICKNAME. \n\n" + \
+            print "Usage: %saveconnection NICKNAME. \n\n" + \
                 "Please supply a NICKNAME to store the connection against."
             return
-        self.ipydb.save_connection(arg)
+        self.ipydb.saveconnection(arg)
