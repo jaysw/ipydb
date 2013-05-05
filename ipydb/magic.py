@@ -118,7 +118,7 @@ class SqlMagics(Magics):
     @argument('-f', '--format', action='store_true',
               help='pretty-print sql statement and exit')
     @argument('-o', '--output', action='store', dest='file',
-              help='Write sql output to the given file')
+              help='Write sql output as CSV to the given file')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
     @line_cell_magic
     def sql(self, args='', cell=None):

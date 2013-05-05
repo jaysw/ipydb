@@ -496,7 +496,7 @@ class SqlPlugin(Plugin):
     def pager(self):
         return Pager()
 
-    def render_result(self, cursor, paginate=True, filepath=None):
+    def render_result(self, cursor, paginate=True, filepath=None, sqlformat=None):
         """Render a result set and pipe through less.
 
         Args:
@@ -504,12 +504,15 @@ class SqlPlugin(Plugin):
                     cursor.keys() which returns a list of string columns
                     headings for the tuples.
         """
+        if not sqlformat:
+            sqlformat = self.sqlformat
         if filepath:
             out = open(filepath, 'w')
+            sqlformat = 'csv'
         else:
             out = self.pager()
         with out as out:  # i'm being lazy with Pager()
-            if self.sqlformat == 'csv':
+            if sqlformat == 'csv':
                 self.format_result_csv(cursor, out=out)
             else:
                 asciitable.draw(cursor, out=out,
