@@ -379,9 +379,10 @@ class SqlPlugin(Plugin):
                 items.append((col, type_, isnull))
             items.sort()
             asciitable.draw(
-                FakedResult([items], 'Field Type Nullable'.split()),
-                out, paginate=False,
+                FakedResult(items, 'Field Type Nullable'.split()),
+                out, paginate=True,
                 max_fieldsize=self.max_fieldsize)
+            out.write('\n')
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
             pk = self.comp_data.get_primarykey(table)

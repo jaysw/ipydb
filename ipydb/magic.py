@@ -249,7 +249,7 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
-    def describe(self, param=''):
+    def desc(self, param=''):
         """Print information about table: columns and keys."""
         self.ipydb.describe(*param.split())
 
