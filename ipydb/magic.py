@@ -402,4 +402,4 @@ class SqlMagics(Magics):
             print "Usage: %saveconnection NICKNAME. \n\n" + \
                 "Please supply a NICKNAME to store the connection against."
             return
-        self.ipydb.saveconnection(arg)
+        self.ipydb.save_connection(arg)
