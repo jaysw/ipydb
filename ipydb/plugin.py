@@ -14,7 +14,8 @@ import logging
 import os
 import sys
 
-from IPython.core.plugin import Plugin
+
+from IPython.config.configurable import Configurable
 from metadata import CompletionDataAccessor
 import sqlalchemy as sa
 from utils import multi_choice_prompt
@@ -41,7 +42,7 @@ class Pager(object):
         self.out.close()
 
 
-class SqlPlugin(Plugin):
+class SqlPlugin(Configurable):
     """The ipydb plugin - manipulate databases from ipython."""
 
     max_fieldsize = 100  # configurable?
@@ -69,7 +70,7 @@ class SqlPlugin(Plugin):
         self.nickname = None
         self.autocommit = False
         self.trans_ctx = None
-        self.debug = False
+        self.debug = True
         self.show_sql = False
         default, configs = engine.getconfigs()
         self.init_completer()

@@ -33,7 +33,7 @@ def load_ipython_extension(ip):
     global _loaded
     if not _loaded:
         plugin = SqlPlugin(shell=ip, config=ip.config)
-        ip.plugin_manager.register_plugin(PLUGIN_NAME, plugin)
+        # ip.plugin_manager.register_plugin(PLUGIN_NAME, plugin)
         configure_prompt(plugin)
         _loaded = True
         ipydb_help()
