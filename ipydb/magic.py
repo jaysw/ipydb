@@ -281,7 +281,7 @@ class SqlMagics(Magics):
         if not param.strip() or len(param.split()) != 1:
             print "Usage: %references TABLE_NAME[.FIELD_NAME]"
             return
-        self.ipydb.eferences(param)
+        self.ipydb.references(param)
 
     @line_magic
     def joins(self, param=""):
