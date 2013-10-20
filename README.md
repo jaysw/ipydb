@@ -64,6 +64,11 @@ You will need a python driver for your database of choice. For example:
 
 ipydb uses [SqlAlchemy](http://www.sqlalchemy.org/) to interact with databases. See the [Supported Databases](http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases) page for a (large!) list of supported [DB-API 2.0](http://www.python.org/dev/peps/pep-0249/) drivers and how to write a connection URL for your particular database.
 
+Start ipython and load the ipydb plugin:
+
+    $ ipython
+    In [1]: load_ext ipydb
+
 Connecting to Databases
 -----------------------
 There are two ways to connect to a database with ipydb. Directly via a connection url, using
