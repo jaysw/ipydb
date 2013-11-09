@@ -14,6 +14,7 @@ from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
 from IPython.utils.process import arg_split
 import sqlparse
+from ipydb.asciitable import PivotResultSet
 
 SQL_ALIASES = 'select insert update delete create alter drop'.split()
 
@@ -181,7 +182,6 @@ class SqlMagics(Magics):
         if args.ret:
             return result
         if result and result.returns_rows:
-            from ipydb.plugin import PivotResultSet  # XXX: circular imports
             if args.single:
                 self.ipydb.render_result(PivotResultSet(result),
                                          paginate=False,
