@@ -9,7 +9,6 @@ The ipydb plugin.
 from ConfigParser import DuplicateSectionError
 import csv
 import fnmatch
-import itertools
 import logging
 import os
 import sys
@@ -21,12 +20,13 @@ import sqlalchemy as sa
 from utils import multi_choice_prompt
 
 import asciitable
-from asciitable import FakedResult, PivotResultSet
+from asciitable import FakedResult
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
 
 log = logging.getLogger(__name__)
+
 
 class Pager(object):
     def __init__(self):
@@ -70,7 +70,7 @@ class SqlPlugin(Configurable):
         self.nickname = None
         self.autocommit = False
         self.trans_ctx = None
-        self.debug = True
+        self.debug = False
         self.show_sql = False
         default, configs = engine.getconfigs()
         self.init_completer()

@@ -9,7 +9,6 @@ import re
 
 from sqlalchemy.sql.compiler import RESERVED_WORDS
 
-from ipydb import PLUGIN_NAME
 from ipydb.engine import getconfigs
 from ipydb.magic import SQL_ALIASES
 
@@ -19,7 +18,7 @@ reassignment = re.compile(r'^\w+\s*=\s*%((\w+).*)')
 
 def get_ipydb(ipython):
     """Return the active ipydb instance."""
-    return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
+    return ipython.magic('get_ipydb')
 
 
 def ipydb_complete(self, event):

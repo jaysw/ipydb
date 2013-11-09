@@ -284,6 +284,10 @@ class SqlMagics(Magics):
         self.ipydb.what_references(param)
 
     @line_magic
+    def get_ipydb(self, param=''):
+        return self.ipydb
+
+    @line_magic
     def joins(self, param=""):
         """Shows a list of all joins involving a given table.
 
