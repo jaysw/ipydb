@@ -100,11 +100,11 @@ class IpydbCompleter(object):
         self.commands_completers = {
             'connect': self.connection_nickname,
             'sqlformat': self.sql_format,
-            'what_references': self.sql_statement,
-            'show_fields': self.sql_statement,
-            'show_tables': self.table_name,
-            'show_joins': self.table_name,
-            'show_fks': self.table_name,
+            'references': self.sql_statement,
+            'fields': self.sql_statement,
+            'tables': self.table_name,
+            'joins': self.table_name,
+            'fks': self.table_name,
             'describe': self.table_name,
             'sql': self.sql_statement,
             'runsql': lambda _: None  # delegate to ipython for file match

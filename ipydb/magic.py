@@ -249,7 +249,7 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
-    def desc(self, param=''):
+    def describe(self, param=''):
         """Print information about table: columns and keys."""
         self.ipydb.describe(*param.split())
 
@@ -285,6 +285,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def get_ipydb(self, param=''):
+        """Return the active ipdyb plugin instance."""
         return self.ipydb
 
     @line_magic
