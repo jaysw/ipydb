@@ -11,7 +11,7 @@ Usage
     In [2] : %automagic on
     Automagic is ON, % prefix IS NOT needed for line magics.
 
-    In [3] : connect_url mysql://user:pass@localhost/employees
+    In [3] : connecturl mysql://user:pass@localhost/employees
     In [4] localhost/employees: tables
     departments
     dept_emp
@@ -64,12 +64,17 @@ You will need a python driver for your database of choice. For example:
 
 ipydb uses [SqlAlchemy](http://www.sqlalchemy.org/) to interact with databases. See the [Supported Databases](http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases) page for a (large!) list of supported [DB-API 2.0](http://www.python.org/dev/peps/pep-0249/) drivers and how to write a connection URL for your particular database.
 
+Start ipython and load the ipydb plugin:
+
+    $ ipython
+    In [1]: load_ext ipydb
+
 Connecting to Databases
 -----------------------
 There are two ways to connect to a database with ipydb. Directly via a connection url, using
-the `connect_url` magic function, or, using a connection 'nickname' with the `connect` magic function.
+the `connecturl` magic function, or, using a connection 'nickname' with the `connect` magic function.
 
-###1\. Using `connect_url`
+###1\. Using `connecturl`
 
 You can connect to a database using an SqlAlchemy style url as follows:
 
@@ -77,9 +82,9 @@ You can connect to a database using an SqlAlchemy style url as follows:
 
 Some examples:
 
-    In [3] : connect_url mysql://myuser:mypass@localhost/mydatabase
-    In [4] : connect_url sqlite:///path/to/mydb.sqlite
-    In [5] : connect_url sqlite:///:memory:
+    In [3] : connecturl mysql://myuser:mypass@localhost/mydatabase
+    In [4] : connecturl sqlite:///path/to/mydb.sqlite
+    In [5] : connecturl sqlite:///:memory:
 
 See the [SqlAlchemy Documentation](http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#database-urls) for further information.
 

@@ -9,7 +9,6 @@ The ipydb plugin.
 from ConfigParser import DuplicateSectionError
 import csv
 import fnmatch
-import itertools
 import logging
 import os
 import sys
@@ -21,12 +20,13 @@ import sqlalchemy as sa
 from utils import multi_choice_prompt
 
 import asciitable
-from asciitable import FakedResult, PivotResultSet
+from asciitable import FakedResult
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
 
 log = logging.getLogger(__name__)
+
 
 class Pager(object):
     def __init__(self):
@@ -70,7 +70,7 @@ class SqlPlugin(Configurable):
         self.nickname = None
         self.autocommit = False
         self.trans_ctx = None
-        self.debug = True
+        self.debug = False
         self.show_sql = False
         default, configs = engine.getconfigs()
         self.init_completer()
@@ -190,9 +190,11 @@ class SqlPlugin(Configurable):
         else:
             config = configs[configname]
             connect_args = {}
-            self.connect_url(engine.make_connection_url(config), connect_args)
-            self.nickname = configname
-        return self.connected
+            success = self.connect_url(
+                engine.make_connection_url(config), connect_args)
+            if success:
+                self.nickname = configname
+        return success
 
     def connect_url(self, url, connect_args={}):
         """Connect to a database using an SqlAlchemy URL.
@@ -207,7 +209,7 @@ class SqlPlugin(Configurable):
         if self.trans_ctx and self.trans_ctx.transaction.is_active:
             print "You have an active transaction, either %commit or " \
                 "%rollback before connecting to a new database."
-            return
+            return False
         safe_url = self.safe_url(url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
@@ -498,7 +500,8 @@ class SqlPlugin(Configurable):
     def pager(self):
         return Pager()
 
-    def render_result(self, cursor, paginate=True, filepath=None, sqlformat=None):
+    def render_result(self, cursor, paginate=True,
+                      filepath=None, sqlformat=None):
         """Render a result set and pipe through less.
 
         Args:

@@ -9,7 +9,6 @@ import re
 
 from sqlalchemy.sql.compiler import RESERVED_WORDS
 
-from ipydb import PLUGIN_NAME
 from ipydb.engine import getconfigs
 from ipydb.magic import SQL_ALIASES
 
@@ -19,7 +18,7 @@ reassignment = re.compile(r'^\w+\s*=\s*%((\w+).*)')
 
 def get_ipydb(ipython):
     """Return the active ipydb instance."""
-    return ipython.plugin_manager.get_plugin(PLUGIN_NAME)
+    return ipython.magic('get_ipydb')
 
 
 def ipydb_complete(self, event):
@@ -101,11 +100,11 @@ class IpydbCompleter(object):
         self.commands_completers = {
             'connect': self.connection_nickname,
             'sqlformat': self.sql_format,
-            'what_references': self.sql_statement,
-            'show_fields': self.sql_statement,
-            'show_tables': self.table_name,
-            'show_joins': self.table_name,
-            'show_fks': self.table_name,
+            'references': self.sql_statement,
+            'fields': self.sql_statement,
+            'tables': self.table_name,
+            'joins': self.table_name,
+            'fks': self.table_name,
             'describe': self.table_name,
             'sql': self.sql_statement,
             'runsql': lambda _: None  # delegate to ipython for file match

@@ -14,6 +14,7 @@ from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
 from IPython.utils.process import arg_split
 import sqlparse
+from ipydb.asciitable import PivotResultSet
 
 SQL_ALIASES = 'select insert update delete create alter drop'.split()
 
@@ -181,7 +182,6 @@ class SqlMagics(Magics):
         if args.ret:
             return result
         if result and result.returns_rows:
-            from ipydb.plugin import PivotResultSet  # XXX: circular imports
             if args.single:
                 self.ipydb.render_result(PivotResultSet(result),
                                          paginate=False,
@@ -249,7 +249,7 @@ class SqlMagics(Magics):
         self.ipydb.show_fields(*param.split())
 
     @line_magic
-    def desc(self, param=''):
+    def describe(self, param=''):
         """Print information about table: columns and keys."""
         self.ipydb.describe(*param.split())
 
@@ -282,6 +282,11 @@ class SqlMagics(Magics):
             print "Usage: %references TABLE_NAME[.FIELD_NAME]"
             return
         self.ipydb.what_references(param)
+
+    @line_magic
+    def get_ipydb(self, param=''):
+        """Return the active ipdyb plugin instance."""
+        return self.ipydb
 
     @line_magic
     def joins(self, param=""):

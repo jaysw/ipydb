@@ -2,7 +2,7 @@
 from setuptools import setup
 import ipydb
 
-requires = ['SQLAlchemy', 'ipython>=0.11', 'python-dateutil', 'sqlparse']
+requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse']
 description = "An IPython extension to help you write and run SQL statements"
 
 setup(
