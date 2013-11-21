@@ -40,6 +40,15 @@ def isublists(l, n):
     return itertools.izip_longest(*[iter(l)] * n)
 
 
+def isprintable(s, codec='utf8'):
+    try:
+        s.encode(codec)
+    except UnicodeError:
+        return False
+    else:
+        return True
+
+
 def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
     """Render an result set as an ascii-table.
 
@@ -81,7 +90,10 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
             for idx, value in enumerate(row):
                 if not isinstance(value, basestring):
                     value = str(value)
-                size = max(sizes[idx], len(value))
+                lenval = len(value)
+                if not isprintable(value[:max_fieldsize - 5]):
+                    lenval *= 2  # doubles when hexified
+                size = max(sizes[idx], lenval)
                 sizes[idx] = min(size, max_fieldsize)
         draw_headings(headings, sizes)
         for rw in screenrows:
@@ -92,8 +104,16 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
                 value = rw[idx]
                 if not isinstance(value, basestring):
                     value = str(value)
-                if len(value) > max_fieldsize:
-                    value = value[:max_fieldsize - 5] + '[...]'
+                lenval = len(value)
+                if not isprintable(value[:max_fieldsize - 5]):
+                    lenval *= 2  # doubles when hexified
+                if lenval > max_fieldsize:
+                    value = value[:max_fieldsize - 5]
+                    if not isprintable(value):
+                        value = value.encode('hex')[:max_fieldsize - 5].upper()
+                    value = value + '[...]'
+                elif not isprintable(value):
+                    value = value.encode('hex').upper()
                 value = value.replace('\n', '^')
                 value = value.replace('\r', '^').replace('\t', ' ')
                 out.write((fmt % value))
