@@ -190,6 +190,10 @@ class SqlMagics(Magics):
                 self.ipydb.render_result(result,
                                          paginate=not bool(args.file),
                                          filepath=args.file)
+        elif result and not result.returns_rows:
+            # XXX: do all drivers support this?
+            s = 's' if result.rowcount != 1 else ''
+            print "%i row%s affected" % (result.rowcount, s)
     sql.__description__ = 'Run an sql statement against ' \
         'the current ipydb connection.'
 
