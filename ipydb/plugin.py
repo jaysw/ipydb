@@ -177,7 +177,7 @@ class SqlPlugin(Configurable):
         See ipydb.magic.connect() for details.
         """
         default, configs = engine.getconfigs()
-
+        success = False
         def available():
             print self.connect.__doc__
             print "Available connection nicknames: %s" % (
