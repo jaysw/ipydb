@@ -212,10 +212,34 @@ class SqlPlugin(Configurable):
             print "You have an active transaction, either %commit or " \
                 "%rollback before connecting to a new database."
             return False
-        safe_url = self.safe_url(url)
+        try:
+            parsed_url = sa.engine.url.make_url(str(url))
+        except sa.exc.ArgumentError as e:
+            print e
+            return False
+        safe_url = self.safe_url(parsed_url)
         if safe_url:
             print "ipydb is connecting to: %s" % safe_url
-        self.engine = engine.from_url(url, connect_args=connect_args)
+        try:
+            self.engine = engine.from_url(parsed_url,
+                                          connect_args=connect_args)
+        except ImportError:
+            print "It looks like you don't have a driver for %s.\n" \
+                "See the following URL for supported " \
+                "database drivers:\n\t%s" % (
+                    parsed_url.drivername,
+                    'http://docs.sqlalchemy.org/en/latest/'
+                    'dialects/index.html#included-dialects')
+            return False
+        # force a connect so that we can fail early if the connection url won't
+        # work
+        try:
+            with self.engine.connect():
+                pass
+        except sa.exc.OperationalError as e:
+            print e
+            return False
+
         self.connected = True
         self.nickname = None
         if self.do_reflection:
