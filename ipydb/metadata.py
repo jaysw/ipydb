@@ -249,6 +249,9 @@ class CompletionDataAccessor(object):
                 self.read(db_key)  # XXX is this slow? make async?
                 metadata.isempty = False
         now = datetime.datetime.now()
+        log.debug('force: %s isempty: %s age: %s maxage: %s', force,
+                  metadata.isempty, (now - metadata['created']),
+                  timedelta(seconds=CACHE_MAX_AGE))
         if ((force or metadata.isempty or
                 (now - metadata['created']) > timedelta(seconds=CACHE_MAX_AGE))
                 and not metadata['reflecting']):
@@ -269,7 +272,9 @@ class CompletionDataAccessor(object):
         """Return True if we have some stored data for db_key."""
         res = self.db.execute('select count(*) as c from dbtable '
                               'where db_key = :db_key', db_key=db_key)
-        return bool(res.fetchone().c)
+        rv =  bool(res.fetchone().c)
+        res.close()
+        return rv
 
     def reflect_metadata(self, target_db):
         db_key = self.get_db_key(target_db.url)
@@ -341,11 +346,17 @@ class CompletionDataAccessor(object):
             res.close()
             if row is not None:
                 table_id = row[0]
+                res = sqtx.execute('update dbtable set created = :now',
+                                   dict(now=datetime.datetime.now()))
+                res.close()
+
             else:
                 res = sqtx.execute(
-                    """insert into dbtable(db_key, name) values (
-                        :db_key, :table)""",
-                    dict(db_key=db_key, table=table.name))
+                    """insert into dbtable(db_key, name, created) values (
+                        :db_key, :table, :now)""",
+                    dict(db_key=db_key,
+                         table=table.name,
+                         now=datetime.datetime.now()))
                 table_id = res.lastrowid
                 res.close()
             for column in table.columns:
@@ -475,7 +486,7 @@ class CompletionDataAccessor(object):
                             dct['referenced_columns'])
             all_fks.append(fk)
         self.metadata[db_key]['foreign_keys'] = all_fks
-        result = self.db.execute("select max(created) as created from dbtable "
+        result = self.db.execute("select min(created) as created from dbtable "
                                  "where db_key = :db_key",
                                  dict(db_key=db_key)).fetchone()
         if result[0]:
