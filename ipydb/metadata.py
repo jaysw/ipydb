@@ -232,6 +232,7 @@ class CompletionDataAccessor(object):
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
     dburl = 'sqlite:////%s' % os.path.join(locate_profile(), 'ipydb.sqlite')
+    debug = True
 
     def __init__(self):
         self.metadata = defaultdict(MetaData)
@@ -253,7 +254,10 @@ class CompletionDataAccessor(object):
                 and not metadata['reflecting']):
             log.debug('Reflecting db data from SA')
             metadata['reflecting'] = True
-            self.pool.apply_async(self.reflect_metadata, (db,))
+            if not self.debug:
+                self.pool.apply_async(self.reflect_metadata, (db,))
+            else:
+                self.reflect_metadata(db)
         return metadata
 
     def get_db_key(self, url):
@@ -334,6 +338,7 @@ class CompletionDataAccessor(object):
                 dict(db_key=db_key, table=table.name))
             table_id = None
             row = res.fetchone()
+            res.close()
             if row is not None:
                 table_id = row[0]
             else:
@@ -342,6 +347,7 @@ class CompletionDataAccessor(object):
                         :db_key, :table)""",
                     dict(db_key=db_key, table=table.name))
                 table_id = res.lastrowid
+                res.close()
             for column in table.columns:
                 constraint_name, pos, reftable, refcolumn = \
                     self._get_foreign_key_info(column)
@@ -350,10 +356,11 @@ class CompletionDataAccessor(object):
                     "select id from dbfield where table_id=:table_id and name=:column_name",
                     dict(table_id=table_id, column_name=column.name))
                 row = res.fetchone()
+                res.close()
                 if row is not None:
                     column_id = row.id
                 if column_id is None:
-                    sqtx.execute(
+                    res = sqtx.execute(
                         """
                             insert into dbfield(
                                 table_id,
@@ -387,8 +394,9 @@ class CompletionDataAccessor(object):
                             refcolumn=refcolumn,
                             primary_key=table.primary_key.contains_column(column),
                             nullable=column.nullable))
+                    res.close()
                 else:
-                    sqtx.execute(
+                    res = sqtx.execute(
                         """
                         update dbfield set
                             type = :type,
@@ -409,10 +417,12 @@ class CompletionDataAccessor(object):
                             primary_key=table.primary_key.contains_column(column),
                             nullable=column.nullable,
                             refcolumn=refcolumn))
+                    res.close()
 
     def read(self, db_key):
         fks = {}
         pks = {}
+        log.debug('fetching all the things')
         result = self.db.execute("""
             select
                 t.db_key,
@@ -456,6 +466,7 @@ class CompletionDataAccessor(object):
                 fks[r.constraint_name]['columns'].append(r.fieldname)
                 fks[r.constraint_name]['referenced_columns'].append(
                     r.referenced_column)
+        result.close()
         all_fks = []
         for name, dct in fks.iteritems():
             fk = ForeignKey(dct['table'],
@@ -473,7 +484,7 @@ class CompletionDataAccessor(object):
             self.metadata[db_key]['created'] = datetime.datetime.now()
 
     def create_schema(self, sqconn):
-        sqconn.execute("""
+        res = sqconn.execute("""
             create table if not exists dbtable (
                 id integer primary key,
                 db_key text not null,
@@ -484,7 +495,8 @@ class CompletionDataAccessor(object):
                     on conflict rollback
             )
         """)
-        sqconn.execute("""
+        res.close()
+        res = sqconn.execute("""
             create table if not exists dbfield (
                 id integer primary key,
                 table_id integer not null
@@ -504,6 +516,7 @@ class CompletionDataAccessor(object):
                     on conflict rollback
             )
         """)
+        res.close()
 
     def flush(self):
         self.pool.terminate()
@@ -514,8 +527,10 @@ class CompletionDataAccessor(object):
         self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
 
     def delete_schema(self):
-        self.db.execute("""drop table dbfield""")
-        self.db.execute("""drop table dbtable""")
+        res = self.db.execute("""drop table dbfield""")
+        res.close()
+        res = self.db.execute("""drop table dbtable""")
+        res.close()
 
     def reflecting(self, db):
         db_key = self.get_db_key(db.url)
