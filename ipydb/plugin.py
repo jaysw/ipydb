@@ -107,7 +107,8 @@ class SqlPlugin(Configurable):
             return ''
         if self.nickname:
             return " " + self.nickname
-        host = self.engine.url.host
+        host = self.engine.url.host or ''
+
         if '.' in host:
             host = host.split('.')[0]
         host = host[:15]  # don't like long hostnames
@@ -178,6 +179,7 @@ class SqlPlugin(Configurable):
         """
         default, configs = engine.getconfigs()
         success = False
+
         def available():
             print self.connect.__doc__
             print "Available connection nicknames: %s" % (
