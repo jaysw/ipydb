@@ -275,20 +275,20 @@ class CompletionDataAccessor(object):
             md.sa_metadata.reflect()
         for table in md.sa_metadata.sorted_tables:
             with timer('reflect and save %s' % table.name, log=log):
-                self.reflect_table(target_db, db_key, table)
+                self.reflect_table(target_db, table)
                 md.tables.add(table.name)
         self.metadata[db_key]['created'] = datetime.datetime.now()
         self.metadata[db_key]['reflecting'] = False
 
-    def reflect_table(self, target_db, db_key, table):
+    def reflect_table(self, target_db, table):
         db_key = self.get_db_key(target_db.url)
         md = self.metadata[db_key]
         log.debug('reflect_table writing to md instance: %r', md)
-        tablename = table.name.lower()
+        tablename = table.name
         md.isempty = False
         fks = {}
         for col in table.columns:
-            fieldname = col.name.lower()
+            fieldname = col.name
             dottedname = tablename + '.' + fieldname
             md.fields.add(fieldname)
             md.dottedfields.add(dottedname)
