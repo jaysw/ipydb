@@ -85,11 +85,6 @@ class MonkeyString(str):
 class IpydbCompleter(object):
     """Readline completer functions for various ipython commands."""
 
-    restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
-    renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
-                           '|DOUBLE.*|FIXED.*|SHORT.*')
-    redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
-
     def __init__(self, ipydb):
         """Constructor.
 
@@ -151,7 +146,7 @@ class IpydbCompleter(object):
         if len(chunks) == 2:
             first, second = chunks
             starters = 'select insert'.split()  # TODO: delete, update
-            if first in starters and (second in metadata.tables or
+            if first in starters and (second in metadata.tablenames() or
                                       self.is_valid_join_expression(second)):
                 return self.expand_two_token_sql(ev)
         if ev.symbol.count('.') == 1:  # something.other
@@ -159,12 +154,12 @@ class IpydbCompleter(object):
         if '**' in ev.symbol:  # special join syntax t1**t2
             return self.join_shortcut(ev)
         # simple single-token completion: foo<tab>
-        return match_lists([metadata.tables, metadata.fields, RESERVED_WORDS],
-                           ev.symbol)
+        return match_lists([metadata.tablenames(), metadata.fieldnames(),
+                            RESERVED_WORDS], ev.symbol)
 
     def table_name(self, ev):
         metadata = self.ipydb.comp_data
-        return match_lists([metadata.tables], ev.symbol)
+        return match_lists([metadata.tablenames()], ev.symbol)
 
     def is_valid_join_expression(self, expr):
         metadata = self.ipydb.comp_data
@@ -238,18 +233,19 @@ class IpydbCompleter(object):
         """Return completions for head.tail<tab>"""
         metadata = self.ipydb.comp_data
         head, tail = ev.symbol.split('.')
-        if expansion and head in metadata.tables and tail == '*':
+        if expansion and head in metadata.tablenames() and tail == '*':
             # tablename.*<tab> -> expand all names
-            matches = metadata
-            return [MonkeyString(ev.symbol,
-                    ', '.join(sorted(metadata.get_dottedfields(table=head))))]
-        matches = match_lists([metadata.dottedfields], ev.symbol)
+            matches = sorted(metadata.fieldnames(table=head, dotted=True))
+            return [MonkeyString(ev.symbol, ', '.join(matches))]
+        lst = metadata.fieldnames(dotted=True)
+        matches = match_lists([lst], ev.symbol)
         if not len(matches):
             if tail == '':
-                fields = map(lambda word: head + '.' + word, metadata.fields)
+                fields = map(lambda word: head + '.' + word,
+                             metadata.fieldnames())
                 matches.extend(fields)
             else:
-                match_lists([metadata.fields], tail, matches.append)
+                match_lists([metadata.fieldnames()], tail, matches.append)
         return matches
 
     def expand_two_token_sql(self, ev):
@@ -263,27 +259,5 @@ class IpydbCompleter(object):
             return [MonkeyString(ev.symbol, '%s from %s' %
                     (colstr, tablename))]
         elif first == 'insert':
-            # XXX: make sure that tablename is a tablename here!
-            # and not a t1**t2**t3
-            cols = metadata.get_fields(table=tablename)
-            colstr = ', '.join(sorted(cols))
-            dcols = metadata.get_dottedfields(table=tablename)
-            deflt = []
-            types = metadata.types
-            for dc in sorted(dcols):
-                default_value = self.default_value_for_type(types[dc])
-                deflt.append(default_value)
             return [MonkeyString(ev.symbol,
-                    'into %s (%s) values (%s)' %
-                    (tablename, colstr, ', '.join(deflt)))]
-
-    def default_value_for_type(self, typ):
-        """Returns a default value which can be used for the SQL type typ."""
-        value = ''
-        if self.redate.search(typ):
-            value = "''"  # XXX: now() or something?
-        elif self.restr.search(typ):
-            value = "''"
-        elif self.renumeric.search(typ):
-            value = "0"
-        return value
+                                 metadata.insert_statement(tablename))]

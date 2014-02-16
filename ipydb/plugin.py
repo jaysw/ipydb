@@ -15,7 +15,7 @@ import sys
 
 
 from IPython.config.configurable import Configurable
-from metadata import CompletionDataAccessor
+from metadata import MetaDataAccessor
 import sqlalchemy as sa
 from utils import multi_choice_prompt
 
@@ -46,7 +46,7 @@ class SqlPlugin(Configurable):
     """The ipydb plugin - manipulate databases from ipython."""
 
     max_fieldsize = 100  # configurable?
-    completion_accessor = CompletionDataAccessor()
+    metadata_accessor = MetaDataAccessor()
     sqlformats = "table csv".split()
     not_connected_message = "ipydb is not connected to a database. " \
         "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
@@ -135,7 +135,7 @@ class SqlPlugin(Configurable):
         """
         if not self.connected:
             return ''
-        return ' !' if self.completion_accessor.reflecting(self.engine) else ''
+        return ' !' if self.metadata_accessor.reflecting(self.engine) else ''
 
     def safe_url(self, url_string):
         """Return url_string with password removed."""
@@ -149,13 +149,13 @@ class SqlPlugin(Configurable):
 
     @property
     def comp_data(self):
-        """Returns completion data for the currect connection.
+        """Returns metadata for the currect connection.
         Returns:
-            Instance of ipydb.metadata.MetaData().
+            Instance of ipydb.metadata.Database().
         """
         if not self.connected:
             return None
-        return self.completion_accessor.get_metadata(self.engine)
+        return self.metadata_accessor.get_metadata(self.engine)
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
@@ -243,15 +243,15 @@ class SqlPlugin(Configurable):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_accessor.get_metadata(self.engine, noisy=True)
+            self.metadata_accessor.get_metadata(self.engine, noisy=True)
         return True
 
     def flush_metadata(self):
         """Delete cached schema information"""
         print "Deleting metadata..."
-        self.completion_accessor.flush()
+        self.metadata_accessor.flush()
         if self.connected:
-            self.completion_accessor.get_metadata(self.engine)
+            self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
     def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
