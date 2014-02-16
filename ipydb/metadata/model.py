@@ -50,7 +50,7 @@ class Database(object):
             self.modified = min(self.modified, t.modified)
 
     def tablenames(self):
-        return [t.name for t in self.tables]
+        return list(self.tables)
 
     def fieldnames(self, table=None, dotted=False):
         ret = set()
@@ -84,7 +84,7 @@ class Database(object):
         if tbl not in self.tables:
             return []
         reftables = set()
-        for c in self.tables[tbl]:
+        for c in self.tables[tbl].columns:
             reftables.update({col.table.name for col in c.referenced_by})
         return reftables
 

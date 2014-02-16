@@ -91,6 +91,13 @@ class MetaDataAccessor(object):
     def __init__(self):
         self.databases = defaultdict(m.Database)
 
+    def read_expunge(self, ipydb_engine):
+        with session_scope(ipydb_engine) as session, \
+                timer('Read-Expunge', log=log):
+            db = persist.read(session)
+            session.expunge_all()  # unhook SA
+        return db
+
     def get_metadata(self, engine, noisy=False, force=False):
         """Fetch metadata for an sqlalchemy engine"""
         db_key = get_db_key(engine)
@@ -102,9 +109,7 @@ class MetaDataAccessor(object):
             return db
         if force:
             # return sqlite data, re-reflect
-            with session_scope(ipydb_engine) as session:
-                db = self.read(session)
-                session.expunge_all()  # unhook SA
+            db = self.read_expunge(ipydb_engine)
             self.databases[db_key] = db
             if noisy:
                 print "ipydb is fetching database metadata"
@@ -112,9 +117,7 @@ class MetaDataAccessor(object):
             return db
         if db.age > MAX_CACHE_AGE:
             # read from sqlite, should be fast enough to do synchronously
-            with session_scope(ipydb_engine) as session:
-                db = self.read(session)
-                session.expunge_all()  # unhook SA
+            db = self.read_expunge(ipydb_engine)
             self.databases[db_key] = db
             if db.age > MAX_CACHE_AGE:
                 # Metadata is empty or too old.
@@ -139,26 +142,30 @@ class MetaDataAccessor(object):
         db.sa_metadata.bind = target_engine
         with timer('sa reflect', log=log):
             db.sa_metadata.reflect()
-        delete_schema(ipydb_engine)
-        create_schema(ipydb_engine)
+        with timer('drop-recreate schema', log=log):
+            delete_schema(ipydb_engine)
+            create_schema(ipydb_engine)
         with session_scope(ipydb_engine) as session:
-            for satable in db.sa_metadata.sorted_tables:
-                table = persist.write_table(session, satable)
-                db.update_tables([table])
+            with timer('Persist sa data', log=log):
+                for satable in db.sa_metadata.sorted_tables:
+                    with timer('write table: %s' % satable.name, log=log):
+                        table = persist.write_table(session, satable)
+                    db.update_tables([table])
             # make sure that everything was eager loaded:
-            self.read(session)
-            # and detach
-            session.expunge_all()  # unhook SA
+            with timer('read-expunge after write', log=log):
+                persist.read(session)
+                # and detach
+                session.expunge_all()  # unhook SA
         db.reflecting = False
 
     def flush(self, engine):
         self.pool.terminate()
         self.pool.join()
-        del self.metadata[get_db_key(engine)]
+        del self.databases[get_db_key(engine)]
         delete_schema(engine)
         create_schema(engine)
         self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
 
     def reflecting(self, db):
-        db_key = get_db_key(db.url)
-        return self.metadata[db_key].reflecting
+        db_key = get_db_key(db)
+        return self.databases[db_key].reflecting
