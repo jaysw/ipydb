@@ -94,12 +94,13 @@ class Database(object):
             reftables.update({col.table.name for col in c.referenced_by})
         return reftables
 
-    def fields_referencing(self, tbl):
+    def fields_referencing(self, tbl, column=None):
         if tbl not in self.tables:
             raise StopIteration()
         for c in self.tables[tbl].columns:
             for r in c.referenced_by:
-                yield ForeignKey(r.table.name, (r.name,), tbl, (c.name,))
+                if column is None or column == r.referenced_column.name:
+                    yield ForeignKey(r.table.name, (r.name,), tbl, (c.name,))
 
     def foreign_keys(self, tbl):
         if tbl not in self.tables:

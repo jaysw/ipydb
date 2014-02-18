@@ -517,9 +517,8 @@ class SqlPlugin(Configurable):
             return
         bits = arg.split('.', 1)
         tablename = bits[0]
-        fieldname = bits[1] if len(bits) > 1 else ''
-        fks = self.get_metadata().fields_referencing(
-            tablename, fieldname)
+        fieldname = bits[1] if len(bits) > 1 else None
+        fks = self.get_metadata().fields_referencing(tablename, fieldname)
         for fk in fks:
             out.write(str(fk) + '\n')
 
@@ -531,7 +530,7 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        fks = self.get_metadata().get_foreignkeys(table)
+        fks = self.get_metadata().foreign_keys(table)
         for fk in fks:
             print fk
 
