@@ -87,10 +87,16 @@ class SqlMagics(Magics):
 
     @line_magic
     def debug(self, arg):
-        """Turn on debugging mode for ipydb."""
-        self.ipydb.debug = True
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
+        """Toggle debugging mode for ipydb."""
+        if self.ipydb.debug:
+            self.ipydb.debug = False
+            root_logger = logging.getLogger()
+            root_logger.setLevel(logging.WARNING)
+        else:
+            self.ipydb.debug = True
+            root_logger = logging.getLogger()
+            root_logger.setLevel(logging.DEBUG)
+        print "ipydb debugging is", 'on' if self.ipydb.debug else 'off'
 
     @line_magic
     def begin(self, arg):
@@ -317,7 +323,8 @@ class SqlMagics(Magics):
     @line_magic
     def sqlformat(self, param=None):
         """Change the output format."""
-        if not param or param not in ('csv', 'table'):
+        from ipydb.plugin import SQLFORMATS
+        if not param or param not in SQLFORMATS:
             print self.sqlformat.__doc__
         else:
             self.ipydb.sqlformat = param

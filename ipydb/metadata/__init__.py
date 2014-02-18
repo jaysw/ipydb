@@ -105,9 +105,11 @@ class MetaDataAccessor(object):
         create_schema(ipydb_engine)
         db = self.databases[db_key]
         if db.reflecting:
+            log.debug('Is already reflecting')
             # we're already busy
             return db
         if force:
+            log.debug('was foreced to re-reflect')
             # return sqlite data, re-reflect
             db = self.read_expunge(ipydb_engine)
             self.databases[db_key] = db
@@ -116,10 +118,12 @@ class MetaDataAccessor(object):
             self.spawn_reflection_thread(db_key, db, engine.url)
             return db
         if db.age > MAX_CACHE_AGE:
+            log.debug('Cache expired age:%s reading from sqlite', db.age)
             # read from sqlite, should be fast enough to do synchronously
             db = self.read_expunge(ipydb_engine)
             self.databases[db_key] = db
             if db.age > MAX_CACHE_AGE:
+                log.debug('Sqlite data too old: %s, re-reflecting', db.age)
                 # Metadata is empty or too old.
                 # Spawn a thread to do the slow sqlalchemy reflection,
                 # return whatever we have

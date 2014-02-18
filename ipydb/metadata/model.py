@@ -7,6 +7,7 @@ of Tables objects from a given database schema.
 import collections
 import datetime as dt
 import itertools
+import logging
 import re
 
 import sqlalchemy as sa
@@ -15,6 +16,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 ZERODATE = dt.datetime(dt.MINYEAR, 1, 1)
 Base = declarative_base()
+log = logging.getLogger(__name__)
 
 
 class Database(object):
@@ -56,14 +58,18 @@ class Database(object):
         ret = set()
         if table is None:  # all field names
             for t in self.tables.itervalues():
-                ret.update([c.name for c in t.columns])
+                if dotted:
+                    ret.update(['%s.%s' % (t.name, c.name) for c in t.columns])
+                else:
+                    ret.update([c.name for c in t.columns])
+
             return ret
         if table not in self.tables:
             return set()
         t = self.tables[table]
         if dotted:
-            return {'%s.%s' % (t.name, f.name) for f in t.fields}
-        return {f.name for f in t.fields}
+            return {'%s.%s' % (t.name, c.name) for c in t.columns}
+        return {c.name for c in t.columns}
 
     def get_joins(self, tbl1, tbl2):
         if tbl1 not in self.tables or tbl2 not in self.tables:
@@ -88,6 +94,26 @@ class Database(object):
             reftables.update({col.table.name for col in c.referenced_by})
         return reftables
 
+    def fields_referencing(self, tbl):
+        if tbl not in self.tables:
+            raise StopIteration()
+        for c in self.tables[tbl].columns:
+            for r in c.referenced_by:
+                yield ForeignKey(r.table.name, (r.name,), tbl, (c.name,))
+
+    def foreign_keys(self, tbl):
+        if tbl not in self.tables:
+            raise StopIteration()
+        for c in self.tables[tbl].columns:
+            if c.referenced_column:
+                yield ForeignKey(tbl, (c.name,),
+                                 c.referenced_column.table.name,
+                                 (c.referenced_column.name,))
+
+    def all_joins(self, tbl):
+        return itertools.chain(self.foreign_keys(tbl),
+                               self.fields_referencing(tbl))
+
     def insert_statement(self, tbl):
         if tbl not in self.tables:
             return ''
@@ -95,12 +121,18 @@ class Database(object):
         sql = 'insert into {table} ({columns}) values ({defaults})'
         columns = ', '.join(c.name for c in t.columns)
         defaults = ', '.join(sql_default(c) for c in t.columns)
-        return sql.format(name=tbl, columns=columns, defualt=defaults)
+        return sql.format(table=tbl, columns=columns, defaults=defaults)
 
     @property
     def age(self):
         """return age of this metadata as a datetime.timedelta"""
         return dt.datetime.now() - (self.modified or ZERODATE)
+
+    def indexes(self, tbl):
+        if tbl not in self.tables:
+            raise StopIteration()
+        for index in self.tables[tbl].indexes:
+            yield index
 
 
 fkclass = collections.namedtuple('ForeignKey',
@@ -116,9 +148,13 @@ class ForeignKey(fkclass):
             self.table, ','.join(self.columns),
             self.reftable, ','.join(self.refcolumns))
 
-    def as_join(self):
+    def as_join(self, reverse=False):
         """Return a string formatted as an SQL join expression."""
-        joinstr = '%s inner join %s on ' % (self.reftable, self.table)
+        tables = [self.reftable, self.table]
+        if reverse:
+            tables.reverse()
+        tables = tuple(tables)
+        joinstr = '%s inner join %s on ' % tables
         sep = ''
         for idx, col in enumerate(self.columns):
             joinstr += sep + '%s.%s = %s.%s' % (
@@ -128,40 +164,46 @@ class ForeignKey(fkclass):
         return joinstr
 
 
-restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
-renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*|DOUBLE.*|FIXED.*|SHORT.*')
-redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
+restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*', re.I)
+renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*|DOUBLE.*|FIXED.*|SHORT.*',
+                       re.I)
+redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP', re.I)
 
 
 def sql_default(column):
     """Return an acceptable default value for the given column.
     col is an ipydb.model.Column.
     """
-    if column.default:
-        return column.default
+    if column.default_value:
+        return column.default_value
     if column.nullable:
         return 'NULL'
     typ = str(column.type).lower().strip()
     value = ''
     if redate.search(typ):
-        head = type.split()[0]
+        log.debug('%s is a date', typ)
+        head = typ.split()[0]
         if head == 'date':
             value = "current_date"
         elif head == 'time':
             value = "current_time"
         elif head in ('datetime', 'timestamp'):
-            value = "current_timesetamp"
+            value = "current_timestamp"
     elif restr.search(typ):
+        log.debug('%s is a string', typ)
         value = "'hello'"
     elif renumeric.search(typ):
+        log.debug('%s is a number', typ)
         value = "0"
+    else:
+        log.debug('no match for type: %s', typ)
     return value
 
 
 class TimesMixin(object):
-    created = sa.Column(sa.DateTime, default=sa.func.now())
-    modified = sa.Column(sa.DateTime, default=sa.func.now(),
-                         onupdate=sa.func.current_timestamp())
+    created = sa.Column(sa.DateTime, default=dt.datetime.now)
+    modified = sa.Column(sa.DateTime, default=dt.datetime.now,
+                         onupdate=dt.datetime.now)
 
 
 class Table(Base, TimesMixin):

@@ -91,5 +91,8 @@ def read(session):
     # no idea why/how else to do it
     for t in tables:
         for c in t.columns:
-            c.referenced_column
+            if c.referenced_column:
+                c.referenced_column.table
+            for r in c.referenced_by:
+                r.table
     return m.Database(tables=tables)

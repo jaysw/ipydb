@@ -85,13 +85,19 @@ class MonkeyString(str):
 class IpydbCompleter(object):
     """Readline completer functions for various ipython commands."""
 
-    def __init__(self, ipydb):
+    restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
+    renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
+                           '|DOUBLE.*|FIXED.*|SHORT.*')
+    redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
+
+    def __init__(self, get_db):
         """Constructor.
 
         Args:
-            ipydb: instance of ipydb.plugin.SqlPlugin
+            getdb: callable that will return an
+            instance of ipydb.metadata.model.Database
         """
-        self.ipydb = ipydb
+        self.get_db = get_db
         self.commands_completers = {
             'connect': self.connection_nickname,
             'sqlformat': self.sql_format,
@@ -106,6 +112,10 @@ class IpydbCompleter(object):
         }
         self.commands_completers.update(
             zip(SQL_ALIASES, [self.sql_statement] * len(SQL_ALIASES)))
+
+    @property
+    def db(self):
+        return self.get_db()
 
     def complete(self, ev):
         """Locate completer for ev.command and call it.
@@ -134,19 +144,18 @@ class IpydbCompleter(object):
 
     def sql_format(self, ev):
         """Return completions for %sql_format."""
-        formats = self.ipydb.sqlformats
+        from ipydb.plugin import SQLFORMATS
         if not ev.symbol:
-            return formats
-        return match_lists([formats], ev.symbol)
+            return SQLFORMATS
+        return match_lists([SQLFORMATS], ev.symbol)
 
     def sql_statement(self, ev):
         """Completions for %sql commands"""
-        metadata = self.ipydb.comp_data
         chunks = ev.line.split()
         if len(chunks) == 2:
             first, second = chunks
             starters = 'select insert'.split()  # TODO: delete, update
-            if first in starters and (second in metadata.tablenames() or
+            if first in starters and (second in self.db.tablenames() or
                                       self.is_valid_join_expression(second)):
                 return self.expand_two_token_sql(ev)
         if ev.symbol.count('.') == 1:  # something.other
@@ -154,29 +163,26 @@ class IpydbCompleter(object):
         if '**' in ev.symbol:  # special join syntax t1**t2
             return self.join_shortcut(ev)
         # simple single-token completion: foo<tab>
-        return match_lists([metadata.tablenames(), metadata.fieldnames(),
+        return match_lists([self.db.tablenames(), self.db.fieldnames(),
                             RESERVED_WORDS], ev.symbol)
 
     def table_name(self, ev):
-        metadata = self.ipydb.comp_data
-        return match_lists([metadata.tablenames()], ev.symbol)
+        return match_lists([self.db.tablenames()], ev.symbol)
 
     def is_valid_join_expression(self, expr):
-        metadata = self.ipydb.comp_data
         if '**' not in expr:
             return False
         tables = expr.split('**')
         valid = True
         while len(tables) > 1:
             tail = tables.pop()
-            jointables = metadata.tables_referencing(tail)
+            jointables = self.db.tables_referencing(tail)
             valid = bool(set(jointables) & set(tables))
             if not valid:
                 break
         return valid
 
     def expand_join_expression(self, expr):
-        metadata = self.ipydb.comp_data
         if not self.is_valid_join_expression(expr):
             return expr
         tables = expr.split('**')
@@ -185,9 +191,9 @@ class IpydbCompleter(object):
             tail = tables.pop()
             # try to join to the other tables:
             for tbl in reversed(tables):
-                joins = metadata.get_joins(tbl, tail)
+                joins = self.db.get_joins(tbl, tail)
                 if joins:
-                    join = joins[0]  # XXX: take a punt
+                    join = iter(joins).next()  # XXX: take a punt
                     joinstr = 'inner join %s on ' % (tail)
                     sep = ''
                     for idx, col in enumerate(join.columns):
@@ -201,13 +207,13 @@ class IpydbCompleter(object):
         return ret
 
     def join_shortcut(self, ev):
-        metadata = self.ipydb.comp_data
 
         def _all_joining_tables(tables):
             ret = set()
             for tablename in tables:
-                for reftable in metadata.tables_referencing(tablename):
-                    ret.add(reftable)
+                for fk in self.db.all_joins(tablename):
+                    tgt = fk.reftable if fk.table == tablename else fk.table
+                    ret.add(tgt)
             return ret
 
         if ev.symbol.endswith('**'):  # incomplete stmt: t1**t2**<tab>
@@ -231,27 +237,24 @@ class IpydbCompleter(object):
 
     def dotted_expression(self, ev, expansion=True):
         """Return completions for head.tail<tab>"""
-        metadata = self.ipydb.comp_data
         head, tail = ev.symbol.split('.')
-        if expansion and head in metadata.tablenames() and tail == '*':
+        if expansion and head in self.db.tablenames() and tail == '*':
             # tablename.*<tab> -> expand all names
-            matches = sorted(metadata.fieldnames(table=head, dotted=True))
-            return [MonkeyString(ev.symbol, ', '.join(matches))]
-        lst = metadata.fieldnames(dotted=True)
-        matches = match_lists([lst], ev.symbol)
+            matches = self.db.fieldnames(table=head, dotted=True)
+            return [MonkeyString(ev.symbol, ', '.join(sorted(matches)))]
+        matches = match_lists([self.db.fieldnames(dotted=True)], ev.symbol)
         if not len(matches):
             if tail == '':
                 fields = map(lambda word: head + '.' + word,
-                             metadata.fieldnames())
+                             self.db.fieldnames())
                 matches.extend(fields)
             else:
-                match_lists([metadata.fieldnames()], tail, matches.append)
+                match_lists([self.db.fieldnames()], tail, matches.append)
         return matches
 
     def expand_two_token_sql(self, ev):
         """Return special expansions for 'select tablename<tab>'
         and for insert 'tablename<tab>'"""
-        metadata = self.ipydb.comp_data
         first, tablename = ev.line.split()
         if first == 'select':
             colstr = ', '.join('%s.*' % t for t in tablename.split('**'))
@@ -259,5 +262,5 @@ class IpydbCompleter(object):
             return [MonkeyString(ev.symbol, '%s from %s' %
                     (colstr, tablename))]
         elif first == 'insert':
-            return [MonkeyString(ev.symbol,
-                                 metadata.insert_statement(tablename))]
+            ins = self.db.insert_statement(tablename)
+            return [MonkeyString(ev.symbol, ins.lstrip('insert'))]
