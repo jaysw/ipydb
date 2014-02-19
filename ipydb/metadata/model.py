@@ -54,6 +54,12 @@ class Database(object):
     def tablenames(self):
         return list(self.tables)
 
+    @property
+    def columns(self):
+        for t in self.tables.itervalues():
+            for c in t.columns:
+                yield c
+
     def fieldnames(self, table=None, dotted=False):
         ret = set()
         if table is None:  # all field names

@@ -460,34 +460,38 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        matches = set()
-        dottedfields = self.get_metadata().dottedfields
-        pkhash = {pk.table: pk.columns for pk in self.get_db().primary_keys}
-        if not globs:
-            matches = dottedfields
-        for glob in globs:
-            bits = glob.split('.', 1)
-            if len(bits) == 1:  # table name only
-                glob += '.*'
-            matches.update(fnmatch.filter(dottedfields, glob))
-        tprev = None
+
+        def starname(col):
+            star = '*' if col.primary_key else ''
+            return star + col.name
+
+        def glob_columns(cols):
+            for c in cols:
+                for glob in globs:
+                    bits = glob.split('.', 1)
+                    if len(bits) == 1:
+                        glob += '.*'
+                    if fnmatch.fnmatch(c.name, glob):
+                        yield c
+
         with self.pager() as out:
-            for match in sorted(matches):
-                tablename, fieldname = match.split('.', 1)
-                nullable = self.get_metadata().nullable
-                if tablename in pkhash and fieldname in pkhash[tablename]:
-                    fieldname = '*%s' % fieldname
-                if tablename != tprev:
-                    if tprev is not None:
-                        out.write("\n")
-                    out.write(tablename + '\n')
-                    out.write('-' * len(tablename) + '\n')
-                out.write("    %-35s%s %s\n" % (
-                    fieldname,
-                    self.get_metadata().types.get(match, '[?]'),
-                    'NULL' if nullable.get(match) else 'NOT NULL'))
-                tprev = tablename
-            out.write('\n')
+            for table in self.get_metadata().tables.itervalues():
+                if globs:
+                    columns = list(glob_columns(table.columns))
+                else:
+                    columns = table.columns
+                columns = {starname(c): c for c in columns}
+                if columns:
+                    out.write(table.name + '\n')
+                    out.write('-' * len(table.name) + '\n')
+                for starcol in sorted(columns):
+                    col = columns[starcol]
+                    out.write("    %-35s%s %s\n" % (
+                        starcol,
+                        col.type,
+                        'NULL' if col.nullable else 'NOT NULL'))
+                if columns:
+                    out.write('\n')
 
     def show_joins(self, table):
         """Show all incoming and outgoing joins possible for a table.
