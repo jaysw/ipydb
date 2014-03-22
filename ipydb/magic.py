@@ -383,7 +383,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def flushmetadata(self, arg):
-        """Flush all ipydb's schema caches.
+        """Flush ipydb's schema caches for the current connection.
 
         Delete ipydb's in-memory cache of reflected schema information.
         Delete and re-create ipydb's sqlite information store.
@@ -396,7 +396,7 @@ class SqlMagics(Magics):
         if not self.ipydb.connected:
             print self.ipydb.not_connected_message
             return
-        self.ipydb.completion_accessor.get_metadata(
+        self.ipydb.metadata_accessor.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
 
     @line_magic
