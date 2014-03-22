@@ -87,10 +87,16 @@ class SqlMagics(Magics):
 
     @line_magic
     def debug(self, arg):
-        """Turn on debugging mode for ipydb."""
-        self.ipydb.debug = True
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
+        """Toggle debugging mode for ipydb."""
+        if self.ipydb.debug:
+            self.ipydb.debug = False
+            root_logger = logging.getLogger()
+            root_logger.setLevel(logging.WARNING)
+        else:
+            self.ipydb.debug = True
+            root_logger = logging.getLogger()
+            root_logger.setLevel(logging.DEBUG)
+        print "ipydb debugging is", 'on' if self.ipydb.debug else 'off'
 
     @line_magic
     def begin(self, arg):
@@ -317,7 +323,8 @@ class SqlMagics(Magics):
     @line_magic
     def sqlformat(self, param=None):
         """Change the output format."""
-        if not param or param not in ('csv', 'table'):
+        from ipydb.plugin import SQLFORMATS
+        if not param or param not in SQLFORMATS:
             print self.sqlformat.__doc__
         else:
             self.ipydb.sqlformat = param
@@ -376,7 +383,7 @@ class SqlMagics(Magics):
 
     @line_magic
     def flushmetadata(self, arg):
-        """Flush all ipydb's schema caches.
+        """Flush ipydb's schema caches for the current connection.
 
         Delete ipydb's in-memory cache of reflected schema information.
         Delete and re-create ipydb's sqlite information store.
@@ -389,7 +396,7 @@ class SqlMagics(Magics):
         if not self.ipydb.connected:
             print self.ipydb.not_connected_message
             return
-        self.ipydb.completion_accessor.get_metadata(
+        self.ipydb.metadata_accessor.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
 
     @line_magic

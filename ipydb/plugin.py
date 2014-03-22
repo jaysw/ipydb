@@ -15,7 +15,7 @@ import sys
 
 
 from IPython.config.configurable import Configurable
-from metadata import CompletionDataAccessor
+from metadata import MetaDataAccessor
 import sqlalchemy as sa
 from utils import multi_choice_prompt
 
@@ -24,8 +24,11 @@ from asciitable import FakedResult
 from completion import IpydbCompleter, ipydb_complete, reassignment
 import engine
 from magic import SqlMagics, register_sql_aliases
+from ipydb.metadata import model
 
 log = logging.getLogger(__name__)
+
+SQLFORMATS = ['csv', 'table']
 
 
 class Pager(object):
@@ -46,7 +49,7 @@ class SqlPlugin(Configurable):
     """The ipydb plugin - manipulate databases from ipython."""
 
     max_fieldsize = 100  # configurable?
-    completion_accessor = CompletionDataAccessor()
+    metadata_accessor = MetaDataAccessor()
     sqlformats = "table csv".split()
     not_connected_message = "ipydb is not connected to a database. " \
         "Try:\n\t%connect CONFIGNAME\nor try:\n\t" \
@@ -85,7 +88,7 @@ class SqlPlugin(Configurable):
         self.shell.Completer.splitter.delim = delims
         if self.shell.Completer.readline:
             self.shell.Completer.readline.set_completer_delims(delims)
-        self.completer = IpydbCompleter(self)
+        self.completer = IpydbCompleter(self.get_metadata)
         for str_key in self.completer.commands_completers.keys():
             str_key = '%' + str_key  # as ipython magic commands
             self.shell.set_hook('complete_command',
@@ -135,7 +138,7 @@ class SqlPlugin(Configurable):
         """
         if not self.connected:
             return ''
-        return ' !' if self.completion_accessor.reflecting(self.engine) else ''
+        return ' !' if self.metadata_accessor.reflecting(self.engine) else ''
 
     def safe_url(self, url_string):
         """Return url_string with password removed."""
@@ -147,15 +150,14 @@ class SqlPlugin(Configurable):
             pass
         return url
 
-    @property
-    def comp_data(self):
-        """Returns completion data for the currect connection.
+    def get_metadata(self):
+        """Returns database metadata for the currect connection.
         Returns:
-            Instance of ipydb.metadata.MetaData().
+            Instance of ipydb.metadata.Database().
         """
         if not self.connected:
-            return None
-        return self.completion_accessor.get_metadata(self.engine)
+            return model.Database()
+        return self.metadata_accessor.get_metadata(self.engine)
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
@@ -243,15 +245,15 @@ class SqlPlugin(Configurable):
         self.connected = True
         self.nickname = None
         if self.do_reflection:
-            self.completion_accessor.get_metadata(self.engine, noisy=True)
+            self.metadata_accessor.get_metadata(self.engine, noisy=True)
         return True
 
     def flush_metadata(self):
         """Delete cached schema information"""
         print "Deleting metadata..."
-        self.completion_accessor.flush()
+        self.metadata_accessor.flush()
         if self.connected:
-            self.completion_accessor.get_metadata(self.engine)
+            self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
     def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
@@ -263,6 +265,9 @@ class SqlPlugin(Configurable):
         Returns:
             Sqlalchemy's DB-API cursor-like object.
         """
+        rereflect = False
+        ddl_commands = 'create drop alter truncate rename'.split()
+        want_tx = 'insert update delete merge replace'.split()
         result = None
         if params is None:
             params = {}
@@ -272,17 +277,22 @@ class SqlPlugin(Configurable):
             print self.not_connected_message
         else:
             bits = query.split()
-            if len(bits) == 2 and bits[0].lower() == 'select' and \
-                    bits[1] in self.comp_data.tables:
+            if (len(bits) == 2 and bits[0].lower() == 'select' and
+                    bits[1] in self.get_metadata().tables):
                 query = 'select * from %s' % bits[1]
-            elif bits[0].lower() in 'insert update delete'.split() \
-                    and not self.trans_ctx and not self.autocommit:
-                self.begin()
+            elif (bits[0].lower() in want_tx and
+                  not self.trans_ctx and not self.autocommit):
+                self.begin()  # create tx before doing modifications
+            elif bits[0].lower() in ddl_commands:
+                rereflect = True
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
                 conn = self.trans_ctx.conn
             try:
                 result = conn.execute(query, *multiparams, **params)
+                if rereflect:  # schema changed
+                    self.metadata_accessor.get_metadata(self.engine,
+                                                        force=True, noisy=True)
             except Exception, e:
                 if self.debug:
                     raise
@@ -377,7 +387,7 @@ class SqlPlugin(Configurable):
             print self.not_connected_message
             return
         matches = set()
-        tablenames = self.comp_data.tables
+        tablenames = self.get_metadata().tables
         if not globs:
             matches = tablenames
         else:
@@ -392,38 +402,38 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        if table not in self.comp_data.tables:
+        if table not in self.get_metadata().tables:
             print "Table not found: %s" % table
             return
-        pkhash = {pk.table: pk.columns for pk in self.comp_data.primary_keys}
+        tbl = self.get_metadata().tables[table]
+
+        def nullstr(nullable):
+            return 'NULL' if nullable else 'NOT NULL'
+
+        def namestr(c):
+            return ('*%s' if c.primary_key else '%s') % c.name
+
         with self.pager() as out:
-            items = []
-            nullable = self.comp_data.nullable
-            for col in self.comp_data.get_fields(table):
-                dottedname = '%s.%s' % (table, col)
-                isnull = 'NULL' if nullable.get(dottedname) else 'NOT NULL'
-                type_ = self.comp_data.types.get(dottedname, '???')
-                if table in pkhash and col in pkhash[table]:  # tag primary key
-                    col = '*%s' % col
-                items.append((col, type_, isnull))
-            items.sort()
+            items = ((namestr(c), c.type, nullstr(c.nullable))
+                     for c in tbl.columns)
+            out.write('Columns' + '\n')
             asciitable.draw(
-                FakedResult(items, 'Field Type Nullable'.split()),
+                FakedResult(sorted(items), 'Name Type Nullable'.split()),
                 out, paginate=True,
-                max_fieldsize=self.max_fieldsize)
+                max_fieldsize=5000)
             out.write('\n')
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
-            pk = self.comp_data.get_primarykey(table)
-            cols = pk.columns if pk else []
+            pk = ', '.join(c.name for c in tbl.columns if c.primary_key)
             out.write('  ')
             if not pk:
                 out.write('(None Found!)')
-            out.write(', '.join(cols))
+            else:
+                out.write(pk)
             out.write('\n\n')
             out.write('Foreign Keys\n')
             out.write('------------\n')
-            fks = self.comp_data.get_foreignkeys(table)
+            fks = self.get_metadata().foreign_keys(table)
             fk = None
             for fk in fks:
                 out.write('  %s\n' % str(fk))
@@ -431,11 +441,21 @@ class SqlPlugin(Configurable):
                 out.write('  (None Found)')
             out.write('\n\nReferences to %s\n' % table)
             out.write('--------------' + '-' * len(table) + '\n')
-            fks = self.comp_data.fields_referencing(table)
+            fks = self.get_metadata().fields_referencing(table)
+            fk = None
             for fk in fks:
                 out.write('  ' + str(fk) + '\n')
-            if not fks:
+            if fk is None:
                 out.write('  (None found)\n')
+            out.write('\n\nIndexes' + '\n')
+
+            def items():
+                for idx in self.get_metadata().indexes(table):
+                    yield (idx.name, ', '.join(c.name for c in idx.columns),
+                           idx.unique)
+            asciitable.draw(FakedResult(sorted(items()),
+                                        'Name Columns Unique'.split()),
+                            out, paginate=True, max_fieldsize=5000)
 
     def show_fields(self, *globs):
         """
@@ -449,34 +469,38 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        matches = set()
-        dottedfields = self.comp_data.dottedfields
-        pkhash = {pk.table: pk.columns for pk in self.comp_data.primary_keys}
-        if not globs:
-            matches = dottedfields
-        for glob in globs:
-            bits = glob.split('.', 1)
-            if len(bits) == 1:  # table name only
-                glob += '.*'
-            matches.update(fnmatch.filter(dottedfields, glob))
-        tprev = None
+
+        def starname(col):
+            star = '*' if col.primary_key else ''
+            return star + col.name
+
+        def glob_columns(table):
+            for c in table.columns:
+                for glob in globs:
+                    bits = glob.split('.', 1)
+                    if len(bits) == 1:
+                        glob += '.*'
+                    if fnmatch.fnmatch('%s.%s' % (table.name, c.name), glob):
+                        yield c
+
         with self.pager() as out:
-            for match in sorted(matches):
-                tablename, fieldname = match.split('.', 1)
-                nullable = self.comp_data.nullable
-                if tablename in pkhash and fieldname in pkhash[tablename]:
-                    fieldname = '*%s' % fieldname
-                if tablename != tprev:
-                    if tprev is not None:
-                        out.write("\n")
-                    out.write(tablename + '\n')
-                    out.write('-' * len(tablename) + '\n')
-                out.write("    %-35s%s %s\n" % (
-                    fieldname,
-                    self.comp_data.types.get(match, '[?]'),
-                    'NULL' if nullable.get(match) else 'NOT NULL'))
-                tprev = tablename
-            out.write('\n')
+            for table in self.get_metadata().tables.itervalues():
+                if globs:
+                    columns = list(glob_columns(table))
+                else:
+                    columns = table.columns
+                columns = {starname(c): c for c in columns}
+                if columns:
+                    out.write(table.name + '\n')
+                    out.write('-' * len(table.name) + '\n')
+                for starcol in sorted(columns):
+                    col = columns[starcol]
+                    out.write("    %-35s%s %s\n" % (
+                        starcol,
+                        col.type,
+                        'NULL' if col.nullable else 'NOT NULL'))
+                if columns:
+                    out.write('\n')
 
     def show_joins(self, table):
         """Show all incoming and outgoing joins possible for a table.
@@ -486,8 +510,9 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        fks = self.comp_data.get_all_joins(table)
-        for fk in fks:
+        for fk in self.get_metadata().foreign_keys(table):
+            print fk.as_join(reverse=True)
+        for fk in self.get_metadata().fields_referencing(table):
             print fk.as_join()
 
     def what_references(self, arg, out=sys.stdout):
@@ -505,9 +530,8 @@ class SqlPlugin(Configurable):
             return
         bits = arg.split('.', 1)
         tablename = bits[0]
-        fieldname = bits[1] if len(bits) > 1 else ''
-        fks = self.comp_data.fields_referencing(
-            tablename, fieldname)
+        fieldname = bits[1] if len(bits) > 1 else None
+        fks = self.get_metadata().fields_referencing(tablename, fieldname)
         for fk in fks:
             out.write(str(fk) + '\n')
 
@@ -519,7 +543,7 @@ class SqlPlugin(Configurable):
         if not self.connected:
             print self.not_connected_message
             return
-        fks = self.comp_data.get_foreignkeys(table)
+        fks = self.get_metadata().foreign_keys(table)
         for fk in fks:
             print fk
 
