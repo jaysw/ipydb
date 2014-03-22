@@ -232,7 +232,7 @@ class CompletionDataAccessor(object):
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
     dburl = 'sqlite:////%s' % os.path.join(locate_profile(), 'ipydb.sqlite')
-    debug = True
+    debug = False
 
     def __init__(self):
         self.metadata = defaultdict(MetaData)
