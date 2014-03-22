@@ -80,13 +80,13 @@ class MetaDataAccessor(object):
     a simplified schema (ipydb.metadata.model) and saved to an sqlite
     database for successive fast-loading. sqlalchemy.MetaData.reflect()
     can be very slow for large/complicated database schemas (this was observed
-    for large oracle databases). The approach taken here is to reflect and
-    update database metadata in a background thread prevent  ipydb
+    for large oracle schemas). The approach taken here is to reflect and
+    update database metadata in a background thread prevent ipydb
     from becoming unresponsive to the user.
     """
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
-    debug = True
+    debug = False
 
     def __init__(self):
         self.databases = defaultdict(m.Database)
@@ -158,7 +158,6 @@ class MetaDataAccessor(object):
             # make sure that everything was eager loaded:
             with timer('read-expunge after write', log=log):
                 persist.read(session)
-                # and detach
                 session.expunge_all()  # unhook SA
         db.reflecting = False
 
