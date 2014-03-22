@@ -2,7 +2,7 @@
 
 write_* functions can be used to covert sqlalchemy.MetaData objects into
 their simpler counterparts (in ipydb.model) and make them persisted to
-via a local sqlalchemy session.
+a local sqlalchemy session.
 """
 
 from sqlalchemy import orm
@@ -87,8 +87,8 @@ def read(session):
             .joinedload('columns')
         ).all()
     # XXX: for some reason this is the only way that I could
-    # for eager-loading of the column.referenced_column,
-    # no idea why/how else to do it
+    # force eager-loading of the column.referenced_column,
+    # no idea why or how else to do it.
     for t in tables:
         for c in t.columns:
             if c.referenced_column:

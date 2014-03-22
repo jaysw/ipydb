@@ -27,7 +27,7 @@ class Database(object):
     model.Table objects keyed by table name.
     There be dragons: another thread can be writing
     to self.tables at any time, so we need to lock for
-    reads/writes.
+    reads/writes. (that would be XXX TODO)
     """
 
     def __init__(self, tables=None):
@@ -147,7 +147,7 @@ fkclass = collections.namedtuple('ForeignKey',
 
 
 class ForeignKey(fkclass):
-    """super simplistic representation of a foreign key"""
+    """Simplistic representation of a foreign key"""
     __slots__ = ()
 
     def __str__(self):

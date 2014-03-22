@@ -265,6 +265,9 @@ class SqlPlugin(Configurable):
         Returns:
             Sqlalchemy's DB-API cursor-like object.
         """
+        rereflect = False
+        ddl_commands = 'create drop alter truncate rename'.split()
+        want_tx = 'insert update delete merge replace'.split()
         result = None
         if params is None:
             params = {}
@@ -274,17 +277,22 @@ class SqlPlugin(Configurable):
             print self.not_connected_message
         else:
             bits = query.split()
-            if len(bits) == 2 and bits[0].lower() == 'select' and \
-                    bits[1] in self.get_metadata().tables:
+            if (len(bits) == 2 and bits[0].lower() == 'select' and
+                    bits[1] in self.get_metadata().tables):
                 query = 'select * from %s' % bits[1]
-            elif bits[0].lower() in 'insert update delete'.split() \
-                    and not self.trans_ctx and not self.autocommit:
-                self.begin()
+            elif (bits[0].lower() in want_tx and
+                  not self.trans_ctx and not self.autocommit):
+                self.begin()  # create tx before doing modifications
+            elif bits[0].lower() in ddl_commands:
+                rereflect = True
             conn = self.engine
             if self.trans_ctx and self.trans_ctx.transaction.is_active:
                 conn = self.trans_ctx.conn
             try:
                 result = conn.execute(query, *multiparams, **params)
+                if rereflect:  # schema changed
+                    self.metadata_accessor.get_metadata(self.engine,
+                                                        force=True, noisy=True)
             except Exception, e:
                 if self.debug:
                     raise
@@ -412,7 +420,7 @@ class SqlPlugin(Configurable):
             asciitable.draw(
                 FakedResult(sorted(items), 'Name Type Nullable'.split()),
                 out, paginate=True,
-                max_fieldsize=self.max_fieldsize)
+                max_fieldsize=5000)
             out.write('\n')
             out.write('Primary Key (*)\n')
             out.write('---------------\n')
@@ -434,19 +442,20 @@ class SqlPlugin(Configurable):
             out.write('\n\nReferences to %s\n' % table)
             out.write('--------------' + '-' * len(table) + '\n')
             fks = self.get_metadata().fields_referencing(table)
+            fk = None
             for fk in fks:
                 out.write('  ' + str(fk) + '\n')
-            if not fks:
+            if fk is None:
                 out.write('  (None found)\n')
             out.write('\n\nIndexes' + '\n')
 
             def items():
                 for idx in self.get_metadata().indexes(table):
-                    for c in idx.columns:
-                        yield (idx.name, c.name, idx.unique)
+                    yield (idx.name, ', '.join(c.name for c in idx.columns),
+                           idx.unique)
             asciitable.draw(FakedResult(sorted(items()),
-                                        'Name Column Unique'.split()),
-                            out, paginate=True)
+                                        'Name Columns Unique'.split()),
+                            out, paginate=True, max_fieldsize=5000)
 
     def show_fields(self, *globs):
         """
@@ -465,19 +474,19 @@ class SqlPlugin(Configurable):
             star = '*' if col.primary_key else ''
             return star + col.name
 
-        def glob_columns(cols):
-            for c in cols:
+        def glob_columns(table):
+            for c in table.columns:
                 for glob in globs:
                     bits = glob.split('.', 1)
                     if len(bits) == 1:
                         glob += '.*'
-                    if fnmatch.fnmatch(c.name, glob):
+                    if fnmatch.fnmatch('%s.%s' % (table.name, c.name), glob):
                         yield c
 
         with self.pager() as out:
             for table in self.get_metadata().tables.itervalues():
                 if globs:
-                    columns = list(glob_columns(table.columns))
+                    columns = list(glob_columns(table))
                 else:
                     columns = table.columns
                 columns = {starname(c): c for c in columns}
