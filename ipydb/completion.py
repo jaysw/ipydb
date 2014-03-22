@@ -5,6 +5,7 @@ This module provides functionality for readline-style
 tab-completion of SQL statements and other ipydb commands.
 """
 import itertools
+import logging
 import re
 
 from sqlalchemy.sql.compiler import RESERVED_WORDS
@@ -12,7 +13,7 @@ from sqlalchemy.sql.compiler import RESERVED_WORDS
 from ipydb.engine import getconfigs
 from ipydb.magic import SQL_ALIASES
 
-
+log = logging.getLogger(__name__)
 reassignment = re.compile(r'^\w+\s*=\s*%((\w+).*)')
 
 
@@ -94,7 +95,7 @@ class IpydbCompleter(object):
         """Constructor.
 
         Args:
-            getdb: callable that will return an
+            get_db: callable that will return an
             instance of ipydb.metadata.model.Database
         """
         self.get_db = get_db
@@ -170,13 +171,17 @@ class IpydbCompleter(object):
         return match_lists([self.db.tablenames()], ev.symbol)
 
     def is_valid_join_expression(self, expr):
+
+        def joining_tables(table):
+            for fk in self.db.all_joins(table):
+                yield fk.table if table != fk.table else fk.reftable
         if '**' not in expr:
             return False
         tables = expr.split('**')
         valid = True
         while len(tables) > 1:
             tail = tables.pop()
-            jointables = self.db.tables_referencing(tail)
+            jointables = joining_tables(tail)
             valid = bool(set(jointables) & set(tables))
             if not valid:
                 break
@@ -184,6 +189,7 @@ class IpydbCompleter(object):
 
     def expand_join_expression(self, expr):
         if not self.is_valid_join_expression(expr):
+            log.debug('%s is not a valid join expr', expr)
             return expr
         tables = expr.split('**')
         ret = ''
