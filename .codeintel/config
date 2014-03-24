@@ -1,6 +1,0 @@
-{
-    "Python": {
-        "python": '/home/jsweeney/.virtualenvs/ipydb/bin/python',
-        "pythonExtraPaths": ['/home/jsweeney/.virtualenvs/ipydb/lib/python2.7/site-packages']
-    },
-}
