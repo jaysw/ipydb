@@ -3,25 +3,27 @@ import itertools
 import unittest
 
 import mock
+from mock import patch
 import nose.tools as nt
 
-from ipydb.completion import IpydbCompleter
+from ipydb import completion
 from ipydb.metadata import model as m
 
 
 class Event(object):
 
-    def __init__(self, command='', line='', symbol=''):
+    def __init__(self, command='', line='', symbol='', text_until_cursor=''):
         self.command = command
         self.line = line
         self.symbol = symbol
+        self.text_until_cursor = text_until_cursor
 
 
-class TestCompletion(unittest.TestCase):
+class CompleterTest(unittest.TestCase):
 
     def setUp(self):
         self.db = mock.Mock(spec=m.Database)
-        self.completer = IpydbCompleter(get_db=lambda: self.db)
+        self.completer = completion.IpydbCompleter(get_db=lambda: self.db)
         self.data = {
             'foo': ['first', 'second', 'third'],
             'bar': ['thing'],
@@ -78,6 +80,20 @@ class TestCompletion(unittest.TestCase):
         result = self.completer.dotted_expression(Event(symbol='bar.'))
         nt.assert_equal(result, ['bar.thing'])
 
+        # where the table is unknown (e.g. some alias that we haven't parsed)
+        # return a match on ANY field. I think this is better than returning
+        # no matches for now.
+        result = self.completer.dotted_expression(
+            Event(symbol='something.thin'))
+        nt.assert_equal(result, ['thing'])
+
+        # this one is a bit crazy. show every possible fieldname...
+        result = self.completer.dotted_expression(
+            Event(symbol='something.'))
+        nt.assert_equal(result,
+                        sorted('something.' + c
+                               for c in itertools.chain(*self.data.values())))
+
     def test_expand_table_dot_star(self):
         result = self.completer.dotted_expression(Event(symbol='foo.*'))
         nt.assert_equal(result, ['foo.first, foo.second, foo.third'])
@@ -121,3 +137,107 @@ class TestCompletion(unittest.TestCase):
         }
         for k, v in expansions.iteritems():
             nt.assert_equal(self.completer.expand_join_expression(k), v)
+
+    def test_join_shortcut(self):
+        expectations = {
+            'lur**': ['lur**bar', 'lur**foo'],
+            'foo**': ['foo**lur'],
+            'baz**': [],
+            'lur**foo**': ['lur**foo**bar', 'lur**foo**foo', 'lur**foo**lur'],
+            'lur**ba': ['lur**bar'],
+            'lur**bar**f': ['lur**bar**foo'],
+            'lur**bar': ['lur inner join bar on lur.bar_id = bar.thing '],
+
+        }
+        for symbol, expected in expectations.iteritems():
+            actual = self.completer.join_shortcut(Event(symbol=symbol))
+            nt.assert_equal(expected, actual)
+
+    def test_sql_format(self):
+        expectations = {
+            '': ['csv', 'table'],
+            'cs': ['csv'],
+            'ta': ['table']
+        }
+        for symbol, expected in expectations.iteritems():
+            actual = self.completer.sql_format(Event(symbol=symbol))
+            nt.assert_equal(expected, actual)
+
+    def mock_config(self, mock_getconfigs):
+        """mocks out the getconfigs() call in ipydb.completion"""
+        confignames = 'employees northwind something'.split()
+        # getconfigs()[1].keys()
+        mock_getconfigs.return_value.__getitem__.return_value\
+            .keys.return_value = confignames
+
+    @patch('ipydb.completion.getconfigs')
+    def test_connection_nickname(self, mock_getconfigs):
+        self.mock_config(mock_getconfigs)
+        expectations = {
+            '': ['employees', 'northwind', 'something'],
+            'emp': ['employees'],
+            'no': ['northwind']
+        }
+        for symbol, expected in expectations.iteritems():
+            actual = self.completer.connection_nickname(Event(symbol=symbol))
+            nt.assert_equal(expected, actual)
+
+    def test_sql_statement(self):
+        expectations = {
+            ('select foo', 'foo'): ['foo.* from foo'],
+            ('select foo.fir', 'foo.fir'): ['foo.first'],
+            ('select foo**lu', 'foo**lu'): ['foo**lur'],
+            ('select foo.first foo.se', 'foo.se'): ['foo.second'],
+        }
+        for (line, symbol), expected in expectations.iteritems():
+            actual = self.completer.sql_statement(
+                Event(line=line, symbol=symbol))
+            nt.assert_equal(expected, actual)
+
+    @patch('ipydb.completion.getconfigs')
+    def test_complete(self, mock_getconfigs):
+        self.mock_config(mock_getconfigs)
+        expectations = {
+            ('connect nor', 'connect', 'nor'): ['northwind'],
+            ('sqlformat ta', 'sqlformat', 'ta'): ['table'],
+            ('references ba', 'references', 'ba'): ['bar', 'baz'],
+            ('tables ba', 'tables', 'ba'): ['bar', 'baz'],
+            ('fields fo', 'fields', 'fo'): ['foo'],  # needs more!
+            ('joins fo', 'joins', 'fo'): ['foo'],
+            ('fks fo', 'fks', 'fo'): ['foo'],
+            ('describe fo', 'describe', 'fo'): ['foo'],
+            ('sql sele', 'sql', 'sele'): ['select'],
+            ('sql select foo.fi', 'sql', 'foo.fi'): ['foo.first'],
+            ('select foo.fi', 'sql', 'foo.fi'): ['foo.first'],
+            ('runsql anything', 'runsql', 'anything'): None,
+            ('foo = %select -r foo.fi', 'select', 'foo.fi'): ['foo.first'],
+        }
+        for (line, command, symbol), expected in expectations.iteritems():
+            actual = self.completer.complete(
+                Event(line=line, symbol=symbol, command=command))
+            nt.assert_equal(expected, actual)
+
+    def test_ipydb_complete(self):
+
+        def ipy_magic(s):
+            if s != 'get_ipydb':
+                raise Exception('something bad happened')
+            m = mock.MagicMock()
+            sqlplugin = m.return_value
+            sqlplugin.debug = True
+            sqlplugin.completer = self.completer
+            return sqlplugin
+
+        mock_ipy = mock.MagicMock()
+        mock_ipy.magic = mock.MagicMock(side_effect=ipy_magic)
+        result = completion.ipydb_complete(
+            mock_ipy,
+            Event(line='select fo', command='select', symbol='fo',
+                  text_until_cursor='select fo'))
+        nt.assert_true('foo', result)
+
+    def test_monkey_string(self):
+        ms = completion.MonkeyString('hello w', 'something hello w')
+        nt.assert_true(ms.startswith('hello w'))
+        nt.assert_equal(ms, 'something hello w')
+        nt.assert_false(ms.startswith('other unrelated thing'))

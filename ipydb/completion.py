@@ -52,9 +52,10 @@ def ipydb_complete(self, event):
     return None
 
 
-def match_lists(lists, text, appendfunc=None):
+def match_lists(lists, text, appendfunc=None, sort=True):
     """Helper to substring-match text in a list-of-lists."""
     n = len(text)
+    results = None
     if appendfunc is None:
         results = []
     for word in itertools.chain(*lists):
@@ -102,8 +103,8 @@ class IpydbCompleter(object):
         self.commands_completers = {
             'connect': self.connection_nickname,
             'sqlformat': self.sql_format,
-            'references': self.sql_statement,
-            'fields': self.sql_statement,
+            'references': self.table_dot_field,
+            'fields': self.table_dot_field,
             'tables': self.table_name,
             'joins': self.table_name,
             'fks': self.table_name,
@@ -141,14 +142,18 @@ class IpydbCompleter(object):
         keys = sorted(getconfigs()[1].keys())
         if not ev.symbol:
             return keys
-        return match_lists([keys], ev.symbol)
+        matches = match_lists([keys], ev.symbol)
+        matches.sort()
+        return matches
 
     def sql_format(self, ev):
         """Return completions for %sql_format."""
         from ipydb.plugin import SQLFORMATS
         if not ev.symbol:
             return SQLFORMATS
-        return match_lists([SQLFORMATS], ev.symbol)
+        matches = match_lists([SQLFORMATS], ev.symbol)
+        matches.sort()
+        return matches
 
     def sql_statement(self, ev):
         """Completions for %sql commands"""
@@ -159,16 +164,28 @@ class IpydbCompleter(object):
             if first in starters and (second in self.db.tablenames() or
                                       self.is_valid_join_expression(second)):
                 return self.expand_two_token_sql(ev)
-        if ev.symbol.count('.') == 1:  # something.other
-            return self.dotted_expression(ev)
         if '**' in ev.symbol:  # special join syntax t1**t2
             return self.join_shortcut(ev)
-        # simple single-token completion: foo<tab>
-        return match_lists([self.db.tablenames(), self.db.fieldnames(),
-                            RESERVED_WORDS], ev.symbol)
+        if ev.symbol.count('.') == 1:  # something.other
+            return self.dotted_expression(ev, expansion=True)
+        # single token, no dot
+        matches = match_lists([self.db.tablenames(), self.db.fieldnames(),
+                               RESERVED_WORDS], ev.symbol)
+        matches.sort()
+        return matches
+
+    def table_dot_field(self, ev):
+        """completes table.fieldname"""
+        if ev.symbol.count('.') == 1:  # something.other
+            return self.dotted_expression(ev, expansion=False)
+        matches = match_lists([self.db.tablenames()], ev.symbol)
+        matches.sort()
+        return matches
 
     def table_name(self, ev):
-        return match_lists([self.db.tablenames()], ev.symbol)
+        matches = match_lists([self.db.tablenames()], ev.symbol)
+        matches.sort()
+        return matches
 
     def is_valid_join_expression(self, expr):
 
@@ -213,6 +230,7 @@ class IpydbCompleter(object):
         return ret
 
     def join_shortcut(self, ev):
+        matches = []
 
         def _all_joining_tables(tables):
             ret = set()
@@ -223,10 +241,8 @@ class IpydbCompleter(object):
             return ret
 
         if ev.symbol.endswith('**'):  # incomplete stmt: t1**t2**<tab>
-            matches = []
             for t in _all_joining_tables(ev.symbol.split('**')):
                 matches.append(MonkeyString(ev.symbol, ev.symbol + t))
-            return matches
         else:
             joinexpr = self.expand_join_expression(ev.symbol)
             if joinexpr != ev.symbol:  # expand succeeded
@@ -236,10 +252,10 @@ class IpydbCompleter(object):
             toke = bits.pop()
             start = '**'.join(bits)
             all_joins = _all_joining_tables(bits)
-            return [MonkeyString(ev.symbol,  start + '**' + t)
-                    for t in all_joins if t.startswith(toke)]
-
-        return []
+            matches = [MonkeyString(ev.symbol,  start + '**' + t)
+                       for t in all_joins if t.startswith(toke)]
+        matches.sort()
+        return matches
 
     def dotted_expression(self, ev, expansion=True):
         """Return completions for head.tail<tab>"""
@@ -249,13 +265,15 @@ class IpydbCompleter(object):
             matches = self.db.fieldnames(table=head, dotted=True)
             return [MonkeyString(ev.symbol, ', '.join(sorted(matches)))]
         matches = match_lists([self.db.fieldnames(dotted=True)], ev.symbol)
-        if not len(matches):
+        if not len(matches):  # head could be a table alias TODO: parse these.
             if tail == '':
                 fields = map(lambda word: head + '.' + word,
                              self.db.fieldnames())
                 matches.extend(fields)
             else:
-                match_lists([self.db.fieldnames()], tail, matches.append)
+                match_lists([self.db.fieldnames()], tail, matches.append,
+                            matches.sort)
+        matches.sort()
         return matches
 
     def expand_two_token_sql(self, ev):
