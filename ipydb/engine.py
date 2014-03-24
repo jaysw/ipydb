@@ -1,6 +1,5 @@
 """Functions to help create an SQLalchemy connection based upon
 a 'connection configuration file'"""
-from collections import defaultdict
 import urlparse
 from ConfigParser import ConfigParser, DuplicateSectionError
 
