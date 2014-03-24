@@ -141,6 +141,7 @@ class MetaDataAccessor(object):
 
     def reflect_db(self, db_key, db, dburl_to_reflect):
         """runs in a new thread"""
+        db.reflecting = True
         ipydb_engine = engine_from_key(db_key)
         target_engine = sa.create_engine(dburl_to_reflect)
         db.sa_metadata.bind = target_engine

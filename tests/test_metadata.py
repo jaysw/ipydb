@@ -48,7 +48,6 @@ def get_user_table():
     return user
 
 
-
 def setup(*args, **kw):
     pass
 
@@ -56,15 +55,7 @@ def setup(*args, **kw):
 def teardown(*args, **kw):
     pass
 
+
 def test_get_metadata():
-    #acc = metadata.MetaDataAccessor()
-    #db = acc.get_metadata(engine, force=True)
-    #assert 'entry' in db.tables.keys()
-    pass
-
-
-def test_eager_load():
-    pass
-
-def test_get_joins():
+    # nothing to see here just yet...
     pass

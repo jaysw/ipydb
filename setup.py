@@ -3,7 +3,7 @@ from setuptools import setup
 import ipydb
 
 requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse']
-tests_require = ['nose']
+tests_require = ['nose', 'mock']
 description = "An IPython extension to help you write and run SQL statements"
 
 setup(
