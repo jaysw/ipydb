@@ -1,3 +1,5 @@
+cover
+.coverage
 dist
 *.swp
 *.pyc
