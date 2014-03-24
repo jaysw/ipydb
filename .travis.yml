@@ -7,4 +7,4 @@ install:
   - pip install nose coverage flake8 --use-mirrors
 script:
   - nosetests --with-coverage --cover-package=ipydb
-  - flake8 --exit-zero paython 
+  - flake8 --exit-zero ipydb
