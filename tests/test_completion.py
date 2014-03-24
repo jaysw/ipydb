@@ -207,29 +207,31 @@ class CompleterTest(unittest.TestCase):
             ('fks fo', 'fks', 'fo'): ['foo'],
             ('describe fo', 'describe', 'fo'): ['foo'],
             ('sql sele', 'sql', 'sele'): ['select'],
+            ('%sql sele', '%sql', 'sele'): ['select'],
             ('sql select foo.fi', 'sql', 'foo.fi'): ['foo.first'],
             ('select foo.fi', 'sql', 'foo.fi'): ['foo.first'],
             ('runsql anything', 'runsql', 'anything'): None,
             ('foo = %select -r foo.fi', 'select', 'foo.fi'): ['foo.first'],
+            ('zzzz', 'zzzz', 'zzzz'): None,
         }
         for (line, command, symbol), expected in expectations.iteritems():
             actual = self.completer.complete(
                 Event(line=line, symbol=symbol, command=command))
             nt.assert_equal(expected, actual)
 
+    def mock_ipy_magic(self, s):
+        """mock for completion.get_ipydb and completion.ipydb_complete()"""
+        if s != 'get_ipydb':
+            raise Exception('something bad happened')
+        m = mock.MagicMock()
+        sqlplugin = m.return_value
+        sqlplugin.debug = True
+        sqlplugin.completer = self.completer
+        return sqlplugin
+
     def test_ipydb_complete(self):
-
-        def ipy_magic(s):
-            if s != 'get_ipydb':
-                raise Exception('something bad happened')
-            m = mock.MagicMock()
-            sqlplugin = m.return_value
-            sqlplugin.debug = True
-            sqlplugin.completer = self.completer
-            return sqlplugin
-
         mock_ipy = mock.MagicMock()
-        mock_ipy.magic = mock.MagicMock(side_effect=ipy_magic)
+        mock_ipy.magic = mock.MagicMock(side_effect=self.mock_ipy_magic)
         result = completion.ipydb_complete(
             mock_ipy,
             Event(line='select fo', command='select', symbol='fo',
@@ -241,3 +243,18 @@ class CompleterTest(unittest.TestCase):
         nt.assert_true(ms.startswith('hello w'))
         nt.assert_equal(ms, 'something hello w')
         nt.assert_false(ms.startswith('other unrelated thing'))
+
+    def test_exceptions_are_surpressed(self):
+        mock_ipy = mock.MagicMock()
+        mock_ipydb = self.mock_ipy_magic('get_ipydb')
+        mock_ipy.magic.return_value = mock_ipydb
+
+        def kaboom(*args, **kw):
+            raise Exception('ka ka ka boo boo booom!')
+
+        mock_ipydb.completer = mock.MagicMock()
+        mock_ipydb.completer.complete = mock.MagicMock(side_effect=kaboom)
+        completion.ipydb_complete(
+            mock_ipy,
+            Event(line='select fo', command='select', symbol='fo',
+                  text_until_cursor='select fo'))
