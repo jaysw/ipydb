@@ -26,8 +26,8 @@ from ipydb.utils import timer
 from . import model as m
 from . import persist
 
-MAX_CACHE_AGE = dt.timedelta(minutes=20)  # invalidate db metadata if
-                                          # it is older than CACHE_MAX_AGE
+# invalidate db metadata if it is older than CACHE_MAX_AGE
+MAX_CACHE_AGE = dt.timedelta(minutes=20)
 
 log = logging.getLogger(__name__)
 
