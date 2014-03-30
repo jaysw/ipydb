@@ -15,15 +15,15 @@ import sys
 
 
 from IPython.config.configurable import Configurable
-from metadata import MetaDataAccessor
 import sqlalchemy as sa
-from utils import multi_choice_prompt
 
-import asciitable
-from asciitable import FakedResult
-from completion import IpydbCompleter, ipydb_complete, reassignment
-import engine
-from magic import SqlMagics, register_sql_aliases
+from ipydb.utils import multi_choice_prompt
+from ipydb.metadata import MetaDataAccessor
+from ipydb import asciitable
+from ipydb.asciitable import FakedResult
+from ipydb.completion import IpydbCompleter, ipydb_complete, reassignment
+from ipydb import engine
+from ipydb.magic import SqlMagics, register_sql_aliases
 from ipydb.metadata import model
 
 log = logging.getLogger(__name__)
