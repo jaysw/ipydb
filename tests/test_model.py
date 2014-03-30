@@ -85,7 +85,6 @@ class ModelTest(unittest.TestCase):
                            default_value=default)
             nt.assert_equal(expected, m.sql_default(col))
 
-
     def test_columns(self):
         cols = itertools.chain(*[t.columns for t in self.tables])
         nt.assert_equal(sorted(cols), sorted(self.db.columns))

@@ -91,8 +91,7 @@ class SqlPlugin(Configurable):
         self.completer = IpydbCompleter(self.get_metadata)
         for str_key in self.completer.commands_completers.keys():
             str_key = '%' + str_key  # as ipython magic commands
-            self.shell.set_hook('complete_command',
-                                ipydb_complete,
+            self.shell.set_hook('complete_command', ipydb_complete,
                                 str_key=str_key)
         # add a regex dispatch for assignments: res = %select -r ...
         self.shell.set_hook('complete_command',
@@ -126,7 +125,7 @@ class SqlPlugin(Configurable):
         if not self.connected:
             return ''
         # I want this: ⚡
-        # but looks like IPython is expecting ascii for the PS1!?
+        # but looks like IPython is expecting ascii for the PS1.
         if self.trans_ctx and self.trans_ctx.transaction.is_active:
             return ' *'
         else:
