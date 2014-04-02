@@ -3,7 +3,7 @@ language: python
 python:
   - "2.7"
 install:
-  - pip -e install . --use-mirrors
+  - pip install -e . --use-mirrors
   - pip install coveralls --use-mirrors
 script:
   - nosetests --with-coverage --cover-package=ipydb
