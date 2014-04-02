@@ -19,7 +19,7 @@ from ipydb.asciitable import PivotResultSet
 SQL_ALIASES = 'select insert update delete create alter drop'.split()
 
 
-def create_sql_alias(alias, magic_manager, sqlmagics):
+def create_sql_alias(alias, sqlmagics):
     """Returns a function which calls SqlMagics.sql
 
     For example, create_sql_alias('select', mm, sqlm) returns a function
@@ -51,7 +51,7 @@ def register_sql_aliases(magic_manager, sqlmagics):
         sqlmagics: instance of SqlMagics
     """
     for alias in SQL_ALIASES:
-        magic_func = create_sql_alias(alias, magic_manager, sqlmagics)
+        magic_func = create_sql_alias(alias, sqlmagics)
         magic_func.func_name = alias
         magic_manager.register_function(magic_func, 'line', alias)
         magic_manager.register_function(magic_func, 'cell', alias)
@@ -60,8 +60,8 @@ def register_sql_aliases(magic_manager, sqlmagics):
 @magics_class
 class SqlMagics(Magics):
 
-    def __init__(self, ipydb, *a, **kw):
-        super(SqlMagics, self).__init__(*a, **kw)
+    def __init__(self, ipydb, shell, *a, **kw):
+        super(SqlMagics, self).__init__(shell, *a, **kw)
         self.ipydb = ipydb
 
     @line_magic
@@ -189,13 +189,11 @@ class SqlMagics(Magics):
             return result
         if result and result.returns_rows:
             if args.single:
-                self.ipydb.render_result(PivotResultSet(result),
-                                         paginate=False,
-                                         filepath=args.file)
+                self.ipydb.render_result(
+                    PivotResultSet(result), paginate=False, filepath=args.file)
             else:
-                self.ipydb.render_result(result,
-                                         paginate=not bool(args.file),
-                                         filepath=args.file)
+                self.ipydb.render_result(
+                    result, paginate=not bool(args.file), filepath=args.file)
         elif result and not result.returns_rows:
             # XXX: do all drivers support this?
             s = 's' if result.rowcount != 1 else ''

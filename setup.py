@@ -13,7 +13,7 @@ setup(
     author='Jay Sweeney',
     author_email='writetojay@gmail.com',
     url='http://github.com/jaysw/ipydb',
-    packages=['ipydb'],
+    packages=['ipydb' ,'ipydb.metadata'],
     package_dir={'ipydb': 'ipydb'},
     include_package_data=True,
     zip_safe=False,

@@ -31,8 +31,7 @@ class Database(object):
     """
 
     def __init__(self, tables=None):
-        self.isempty = True
-        self.tables = collections.OrderedDict()
+        self.tables = {}
         self.modified = None
         self.reflecting = False
         self.sa_metadata = sa.MetaData()
@@ -45,7 +44,8 @@ class Database(object):
 
     def update_tables(self, tables):
         """Upate table definitions from a list of tables."""
-        for t in sorted(tables, key=lambda x: x.name):
+        for t in tables:
+            self.isempty = False
             self.tables[t.name] = t
             if self.modified is None:
                 self.modified = t.modified
@@ -79,7 +79,7 @@ class Database(object):
 
     def get_joins(self, tbl1, tbl2):
         if tbl1 not in self.tables or tbl2 not in self.tables:
-            return []
+            return set()
         t1 = self.tables[tbl1]
         t2 = self.tables[tbl2]
         joins = set()
@@ -94,7 +94,7 @@ class Database(object):
 
     def tables_referencing(self, tbl):
         if tbl not in self.tables:
-            return []
+            return set()
         reftables = set()
         for c in self.tables[tbl].columns:
             reftables.update({col.table.name for col in c.referenced_by})
@@ -182,7 +182,7 @@ def sql_default(column):
     col is an ipydb.model.Column.
     """
     if column.default_value:
-        return column.default_value
+        return "'%s'" % column.default_value
     if column.nullable:
         return 'NULL'
     typ = str(column.type).lower().strip()
@@ -217,10 +217,6 @@ class Table(Base, TimesMixin):
     __tablename__ = 'dbtable'
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String, index=True, unique=True)
-
-    @property
-    def foreign_keys(self):
-        return set(itertools.chain(self.columns.foreign_keys))
 
     def column(self, name):
         for column in self.columns:
