@@ -3,8 +3,10 @@ language: python
 python:
   - "2.7"
 install:
-  - python setup.py develop
-  - pip install nose coverage flake8 --use-mirrors
+  - pip -e install . --use-mirrors
+  - pip install coveralls --use-mirrors
 script:
   - nosetests -v --with-coverage --cover-package=ipydb
   - flake8 --exit-zero ipydb
+after_success:
+  - coveralls
