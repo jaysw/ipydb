@@ -2,6 +2,7 @@ ipydb: Work with databases in IPython
 =========================
 [![Build Status](https://travis-ci.org/jaysw/ipydb.svg?branch=master)](https://travis-ci.org/jaysw/ipydb)
 [![Coverage Status](https://coveralls.io/repos/jaysw/ipydb/badge.png?branch=master)](https://coveralls.io/r/jaysw/ipydb?branch=master)
+
 ipydb is an [IPython](http://ipython.org/) plugin for running SQL queries and viewing their results.
 
 Usage
