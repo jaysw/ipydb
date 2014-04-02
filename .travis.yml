@@ -5,7 +5,7 @@ python:
 install:
   - pip install -e . --use-mirrors
   - pip install coveralls --use-mirrors
-  - pip install nose coverage --use-mirrors
+  - pip install flake8 coverage --use-mirrors
 script:
   - nosetests --with-coverage --cover-package=ipydb
   - flake8 --exit-zero ipydb
