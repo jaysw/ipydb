@@ -43,7 +43,7 @@ class Database(object):
         return bool(self.tables)
 
     def update_tables(self, tables):
-        """Upate table definitions from a list of tables."""
+        """Update table definitions from a list of tables."""
         for t in tables:
             self.isempty = False
             self.tables[t.name] = t
