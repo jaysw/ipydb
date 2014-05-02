@@ -1,5 +1,6 @@
 import unittest
 
+from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt
 import mock
 
@@ -10,7 +11,8 @@ class ModelTest(unittest.TestCase):
 
     def setUp(self):
         self.ipydb = mock.MagicMock(spec=plugin.SqlPlugin)
-        self.ipython = mock.MagicMock()
+        self.ipython = mock.MagicMock(spec=TerminalInteractiveShell)
+        self.ipython.config = None
         self.magics = magic.SqlMagics(self.ipydb, self.ipython)
 
     def test_create_sql_alias(self):
