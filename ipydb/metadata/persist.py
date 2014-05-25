@@ -17,8 +17,9 @@ def write_sa_metadata(engine, sa_metadata):
     We can assume that engine is a bunch of empty tables, hence
     should not need to do upsert/existence checking.
     """
-    engine.execute(m.Table.__table__.insert(),
-                   [{'name': t.name} for t in sa_metadata.sorted_tables])
+    data = [{'name': t.name} for t in sa_metadata.sorted_tables]
+    if data:
+        engine.execute(m.Table.__table__.insert(), data)
     result = engine.execute('select name, id from dbtable')
     tableidmap = dict(result.fetchall())
 
