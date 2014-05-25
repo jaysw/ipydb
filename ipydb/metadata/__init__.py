@@ -99,7 +99,7 @@ class MetaDataAccessor(object):
     """
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
-    debug = True
+    debug = False
 
     def __init__(self):
         self.databases = defaultdict(m.Database)
