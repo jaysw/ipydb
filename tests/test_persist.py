@@ -1,11 +1,9 @@
 import logging
 
 import sqlalchemy as sa
-from nose import with_setup
 
 from ipydb import metadata
 from ipydb.metadata import model as m
-from ipydb.metadata import persist
 
 
 logging.basicConfig()
@@ -50,16 +48,16 @@ def get_user_table():
     return user
 
 
-@with_setup(setup_ipydb_schema, teardown_ipydb_schema)
-def test_write_column_empty_schema():
-    user = get_user_table()
-    sacol = user.columns['user_id']
-    user_table = m.Table(name=user.name)
-    ipsession.add(user_table)
-
-    column = persist.write_column(ipsession, user_table, sacol)
-
-    assert column.name == sacol.name
-    col2 = ipsession.query(m.Column).filter_by(
-        name=sacol.name, table=user_table).scalar()
-    assert column == col2
+#  @with_setup(setup_ipydb_schema, teardown_ipydb_schema)
+#  def test_write_column_empty_schema():
+#      user = get_user_table()
+#      sacol = user.columns['user_id']
+#      user_table = m.Table(name=user.name)
+#      ipsession.add(user_table)
+#
+#      column = persist.write_column(ipsession, user_table, sacol)
+#
+#      assert column.name == sacol.name
+#      col2 = ipsession.query(m.Column).filter_by(
+#          name=sacol.name, table=user_table).scalar()
+#      assert column == col2
