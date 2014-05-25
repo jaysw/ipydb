@@ -164,14 +164,12 @@ class MetaDataAccessor(object):
             create_schema(ipydb_engine)
         with timer('Persist sa data', log=log):
             persist.write_sa_metadata(ipydb_engine, db.sa_metadata)
-            #for satable in db.sa_metadata.sorted_tables:
-                #with timer('write table: %s' % satable.name, log=log):
-                    #table = persist.write_table(session, satable)
-                #db.update_tables([table])
-        # make sure that everything was eager loaded:
+        # make sure that everything was eager loaded, and update
+        # db metadata from other thread XXX: dicey
         with session_scope(ipydb_engine) as session:
             with timer('read-expunge after write', log=log):
-                persist.read(session)
+                database = persist.read(session)
+                db.update_tables(database.tables.values())
                 session.expunge_all()  # unhook SA
         db.reflecting = False
 
