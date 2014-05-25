@@ -34,16 +34,29 @@ log = logging.getLogger(__name__)
 Session = orm.sessionmaker()
 
 
-def engine_from_key(db_key):
+def get_metadata_engine(other_engine):
+    """Create and return an SA engine for which will be used for
+    storing ipydb db metadata about the input engine.
+
+    Args:
+        other_engine - SA engine for which we will be storing metadata for.
+    Returns:
+        tuple (dbname, sa_engine). dbname is a unique key for the input
+        other_engine. sa_engine is the SA engine that will be used for storing
+        metadata about `other_engine`
+    """
     path = os.path.join(locate_profile(), 'ipydb')
     if not os.path.exists(path):
         os.makedirs(path)
-    dburl = 'sqlite:////%s' % os.path.join(locate_profile(), 'ipydb', db_key)
-    return sa.create_engine(dburl)
+    dbfilename = get_db_filename(other_engine)
+    dburl = 'sqlite:////%s' % os.path.join(path, dbfilename)
+    return dbfilename, sa.create_engine(dburl)
 
 
-def get_db_key(engine):
-    """Unique key for an sqlachemy db connection. url/filename safe"""
+def get_db_filename(engine):
+    """For the input SqlAlchemy engine, return a string name suitable for
+    creating an sqlite database to store the engine's ipydb metadata.
+    """
     url = engine.url
     url = str(URL(url.drivername, url.username, host=url.host,
                   port=url.port, database=url.database))
@@ -86,7 +99,7 @@ class MetaDataAccessor(object):
     """
 
     pool = ThreadPool(multiprocessing.cpu_count() * 2)
-    debug = False
+    debug = True
 
     def __init__(self):
         self.databases = defaultdict(m.Database)
@@ -100,8 +113,7 @@ class MetaDataAccessor(object):
 
     def get_metadata(self, engine, noisy=False, force=False):
         """Fetch metadata for an sqlalchemy engine"""
-        db_key = get_db_key(engine)
-        ipydb_engine = engine_from_key(db_key)
+        db_key, ipydb_engine = get_metadata_engine(engine)
         create_schema(ipydb_engine)
         db = self.databases[db_key]
         if db.reflecting:
@@ -142,34 +154,37 @@ class MetaDataAccessor(object):
     def reflect_db(self, db_key, db, dburl_to_reflect):
         """runs in a new thread"""
         db.reflecting = True
-        ipydb_engine = engine_from_key(db_key)
         target_engine = sa.create_engine(dburl_to_reflect)
+        db_key, ipydb_engine = get_metadata_engine(target_engine)
         db.sa_metadata.bind = target_engine
         with timer('sa reflect', log=log):
             db.sa_metadata.reflect()
         with timer('drop-recreate schema', log=log):
             delete_schema(ipydb_engine)
             create_schema(ipydb_engine)
+        with timer('Persist sa data', log=log):
+            persist.write_sa_metadata(ipydb_engine, db.sa_metadata)
+            #for satable in db.sa_metadata.sorted_tables:
+                #with timer('write table: %s' % satable.name, log=log):
+                    #table = persist.write_table(session, satable)
+                #db.update_tables([table])
+        # make sure that everything was eager loaded:
         with session_scope(ipydb_engine) as session:
-            with timer('Persist sa data', log=log):
-                for satable in db.sa_metadata.sorted_tables:
-                    with timer('write table: %s' % satable.name, log=log):
-                        table = persist.write_table(session, satable)
-                    db.update_tables([table])
-            # make sure that everything was eager loaded:
             with timer('read-expunge after write', log=log):
                 persist.read(session)
                 session.expunge_all()  # unhook SA
         db.reflecting = False
 
     def flush(self, engine):
+        """Delete all metadata associated with engine."""
         self.pool.terminate()
         self.pool.join()
-        del self.databases[get_db_key(engine)]
-        delete_schema(engine)
-        create_schema(engine)
+        db_key, ipydb_engine = get_metadata_engine(engine)
+        del self.databases[db_key]
+        delete_schema(ipydb_engine)
+        create_schema(ipydb_engine)
         self.pool = ThreadPool(multiprocessing.cpu_count() * 2)
 
-    def reflecting(self, db):
-        db_key = get_db_key(db)
+    def reflecting(self, engine):
+        db_key = get_db_filename(engine)
         return self.databases[db_key].reflecting

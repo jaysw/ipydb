@@ -249,10 +249,12 @@ class SqlPlugin(Configurable):
 
     def flush_metadata(self):
         """Delete cached schema information"""
+        if not self.connected:
+            print self.not_connected_message
+            return
         print "Deleting metadata..."
-        self.metadata_accessor.flush()
-        if self.connected:
-            self.metadata_accessor.get_metadata(self.engine, noisy=True)
+        self.metadata_accessor.flush(self.engine)
+        self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
     def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
