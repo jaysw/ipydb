@@ -1,9 +1,4 @@
-"""Persists (and reads) SQLAlchemy metadata representations to a local db.
-
-write_* functions can be used to covert sqlalchemy.MetaData objects into
-their simpler counterparts (in ipydb.model) and make them persisted to
-a local sqlalchemy session.
-"""
+"""Persists (and reads) SQLAlchemy metadata representations to a local db."""
 
 import sqlalchemy as sa
 from sqlalchemy import orm
