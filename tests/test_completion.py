@@ -247,6 +247,7 @@ class CompleterTest(unittest.TestCase):
     def test_exceptions_are_surpressed(self):
         mock_ipy = mock.MagicMock()
         mock_ipydb = self.mock_ipy_magic('get_ipydb')
+        mock_ipydb.debug = False
         mock_ipy.magic.return_value = mock_ipydb
 
         def kaboom(*args, **kw):
