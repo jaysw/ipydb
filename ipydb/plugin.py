@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 SQLFORMATS = ['csv', 'table']
 
 
-class Pager(object):
+class Pager(object):  # pragma: no cover
     def __init__(self):
         self.out = os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
 
@@ -101,6 +101,7 @@ class SqlPlugin(Configurable):
         """Returns current sqlalchemy engine reference, if there was one."""
         if not self.connected:
             print self.not_connected_message
+            return None
         return self.engine
 
     def get_db_ps1(self, *args, **kwargs):
@@ -224,7 +225,7 @@ class SqlPlugin(Configurable):
         try:
             self.engine = engine.from_url(parsed_url,
                                           connect_args=connect_args)
-        except ImportError:
+        except ImportError:  # pragma: nocover
             print "It looks like you don't have a driver for %s.\n" \
                 "See the following URL for supported " \
                 "database drivers:\n\t%s" % (
@@ -237,7 +238,7 @@ class SqlPlugin(Configurable):
         try:
             with self.engine.connect():
                 pass
-        except sa.exc.OperationalError as e:
+        except sa.exc.OperationalError as e:  # pragma: nocover
             print e
             return False
 
@@ -295,7 +296,7 @@ class SqlPlugin(Configurable):
                     self.metadata_accessor.get_metadata(self.engine,
                                                         force=True, noisy=True)
             except Exception, e:
-                if self.debug:
+                if self.debug:  # pragma: nocover
                     raise
                 print e.message
         return result

@@ -170,6 +170,7 @@ class MetaDataAccessor(object):
             with timer('read-expunge after write', log=log):
                 database = persist.read(session)
                 db.update_tables(database.tables.values())
+                db.sa_metadata = database.sa_metadata
                 session.expunge_all()  # unhook SA
         db.reflecting = False
 
