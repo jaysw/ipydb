@@ -334,7 +334,12 @@ class SqlPlugin(Configurable):
                         elif choice == 'q':
                             break
                     if current:
-                        self.execute(current)
+                        if current.strip().lower() == 'commit':
+                            self.commit()
+                        elif current.strip().lower() == 'rollback':
+                            self.rollback()
+                        else:
+                            self.execute(current)
                         current = ''
                 else:
                     current += line
