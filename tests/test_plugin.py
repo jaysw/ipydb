@@ -195,8 +195,8 @@ class TestSqlPlugin(object):
                      table=customer)
         ]
         customer.columns = columns
-        database = m.Database(tables=[company, customer])
-        self.md_accessor.get_metadata.return_value = database
+        self.database = m.Database(tables=[company, customer])
+        self.md_accessor.get_metadata.return_value = self.database
 
     @mock.patch('ipydb.plugin.Pager')
     def test_describe_company(self, pager):
@@ -238,6 +238,23 @@ class TestSqlPlugin(object):
         self.ip.show_fields()
         output = self.pagerio.getvalue()
         nt.assert_regexp_matches(output, 'company_id\s+INTEGER NULL')
+
+    @mock.patch('ipydb.plugin.Pager')
+    def test_show_joins(self, pager):
+        self.setup_mock_describe_db(pager)
+        self.ip.show_joins('customer')
+        output = self.pagerio.getvalue()
+        expected = ('customer inner join company on company.id = '
+                    'customer.company_id')
+        nt.assert_regexp_matches(expected, output)
+
+    @mock.patch('ipydb.plugin.Pager')
+    def test_what_references(self, pager):
+        self.setup_mock_describe_db(pager)
+        self.ip.what_references('company')
+        output = self.pagerio.getvalue()
+        expected = 'customer(company_id) references company(id)'
+        nt.assert_regexp_matches(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_get_columns_glob(self, pager):

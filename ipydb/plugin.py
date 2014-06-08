@@ -509,15 +509,16 @@ class SqlPlugin(Configurable):
         Args:
             table: Table name.
         """
-        if not self.connected:
-            print self.not_connected_message
-            return
-        for fk in self.get_metadata().foreign_keys(table):
-            print fk.as_join(reverse=True)
-        for fk in self.get_metadata().fields_referencing(table):
-            print fk.as_join()
+        with self.pager() as out:
+            if not self.connected:
+                out.write(self.not_connected_message)
+                return
+            for fk in self.get_metadata().foreign_keys(table):
+                out.write(fk.as_join(reverse=True))
+            for fk in self.get_metadata().fields_referencing(table):
+                out.write(fk.as_join())
 
-    def what_references(self, arg, out=sys.stdout):
+    def what_references(self, arg):
         """Show fields referencing the input table/field arg.
 
         If arg is a tablename, then print fields which reference
@@ -527,15 +528,16 @@ class SqlPlugin(Configurable):
 
         Args:
             arg: Either a table name or a [table.field] name"""
-        if not self.connected:
-            out.write(self.not_connected_message + '\n')
-            return
-        bits = arg.split('.', 1)
-        tablename = bits[0]
-        fieldname = bits[1] if len(bits) > 1 else None
-        fks = self.get_metadata().fields_referencing(tablename, fieldname)
-        for fk in fks:
-            out.write(str(fk) + '\n')
+        with self.pager() as out:
+            if not self.connected:
+                out.write(self.not_connected_message + '\n')
+                return
+            bits = arg.split('.', 1)
+            tablename = bits[0]
+            fieldname = bits[1] if len(bits) > 1 else None
+            fks = self.get_metadata().fields_referencing(tablename, fieldname)
+            for fk in fks:
+                out.write(str(fk) + '\n')
 
     def show_fks(self, table):
         """Show foreign keys for the given table
