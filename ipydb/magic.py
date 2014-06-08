@@ -13,6 +13,7 @@ from IPython.core.magic import Magics, magics_class, \
 from IPython.core.magic_arguments import magic_arguments, \
     argument, parse_argstring
 from IPython.utils.process import arg_split
+
 import sqlparse
 from ipydb.asciitable import PivotResultSet
 
