@@ -156,7 +156,7 @@ class SqlPlugin(Configurable):
         try:
             url = sa.engine.url.make_url(str(url_string))
             url.password = 'xxx'
-        except:
+        except:  # pragma: no cover
             pass
         return url
 
@@ -301,8 +301,8 @@ class SqlPlugin(Configurable):
             if rereflect:  # schema changed
                 self.metadata_accessor.get_metadata(self.engine,
                                                     force=True, noisy=True)
-        except Exception, e:
-            if self.debug:  # pragma: nocover
+        except Exception, e:  # pragma: nocover
+            if self.debug:
                 raise
             print e.message
         return result
@@ -509,9 +509,9 @@ class SqlPlugin(Configurable):
         """
         with self.pager() as out:
             for fk in self.get_metadata().foreign_keys(table):
-                out.write(fk.as_join(reverse=True))
+                out.write('%s\n' % fk.as_join(reverse=True))
             for fk in self.get_metadata().fields_referencing(table):
-                out.write(fk.as_join())
+                out.write('%s\n' % fk.as_join())
 
     @connected
     def what_references(self, arg):
@@ -538,9 +538,10 @@ class SqlPlugin(Configurable):
 
         Args:
             table: A table name."""
-        fks = self.get_metadata().foreign_keys(table)
-        for fk in fks:
-            print fk
+        with self.pager() as out:
+            fks = self.get_metadata().foreign_keys(table)
+            for fk in fks:
+                out.write(str(fk) + '\n')
 
     def pager(self):
         return Pager()

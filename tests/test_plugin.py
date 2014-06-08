@@ -110,10 +110,15 @@ class TestSqlPlugin(object):
         nt.assert_equal('', self.ip.get_transaction_ps1())
 
     def test_prompt(self):
+        self.ip.connected = False
+        nt.assert_equal('', self.ip.get_db_ps1())
+        self.ip.connected = True
         nt.assert_equal(' con1', self.ip.get_db_ps1())
         nt.assert_equal('', self.ip.get_transaction_ps1())
         self.md_accessor.reflecting.return_value = True
         nt.assert_equal(' !', self.ip.get_reflecting_ps1())
+        self.ip.connected = False
+        nt.assert_equal('', self.ip.get_reflecting_ps1())
         self.ip.connect_url(self.mock_db_url)
         nt.assert_equal(' zing/db', self.ip.get_db_ps1())
 
@@ -245,13 +250,21 @@ class TestSqlPlugin(object):
         self.ip.show_joins('customer')
         output = self.pagerio.getvalue()
         expected = ('customer inner join company on company.id = '
-                    'customer.company_id')
+                    'customer.company_id\n')
         nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_what_references(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.what_references('company')
+        output = self.pagerio.getvalue()
+        expected = 'customer(company_id) references company(id)\n'
+        nt.assert_equal(expected, output)
+
+    @mock.patch('ipydb.plugin.Pager')
+    def test_show_fks(self, pager):
+        self.setup_mock_describe_db(pager)
+        self.ip.show_fks('customer')
         output = self.pagerio.getvalue()
         expected = 'customer(company_id) references company(id)\n'
         nt.assert_equal(expected, output)
