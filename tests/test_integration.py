@@ -7,6 +7,7 @@ import nose.tools as nt
 import mock
 from StringIO import StringIO
 
+import ipydb
 from ipydb import plugin, engine
 
 
@@ -43,6 +44,9 @@ class TestIntegraion(object):
         self.m.flushmetadata('')
         self.m.describe('Album')
         print self.out.getvalue()
+
+    def test_help(self):
+        ipydb.ipydb_help()  # XXX: assert somthing...
 
     def test_other(self):
         self.m.connecturl(EXAMPLEDB)
