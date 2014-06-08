@@ -246,15 +246,15 @@ class TestSqlPlugin(object):
         output = self.pagerio.getvalue()
         expected = ('customer inner join company on company.id = '
                     'customer.company_id')
-        nt.assert_regexp_matches(expected, output)
+        nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_what_references(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.what_references('company')
         output = self.pagerio.getvalue()
-        expected = 'customer(company_id) references company(id)'
-        nt.assert_regexp_matches(expected, output)
+        expected = 'customer(company_id) references company(id)\n'
+        nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_get_columns_glob(self, pager):

@@ -9,6 +9,7 @@ The ipydb plugin.
 from ConfigParser import DuplicateSectionError
 import csv
 import fnmatch
+import functools
 import logging
 import os
 import sys
@@ -29,6 +30,17 @@ from ipydb.metadata import model
 log = logging.getLogger(__name__)
 
 SQLFORMATS = ['csv', 'table']
+
+
+def connected(f):
+    """Decorator - bail if not connected"""
+    @functools.wraps(f)
+    def wrapper(plugin, *args, **kw):
+        if not plugin.connected:
+            print plugin.not_connected_message
+            return
+        return f(plugin, *args, **kw)
+    return wrapper
 
 
 class Pager(object):  # pragma: no cover
@@ -97,11 +109,9 @@ class SqlPlugin(Configurable):
         self.shell.set_hook('complete_command',
                             ipydb_complete, re_key=reassignment)
 
+    @connected
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
-        if not self.connected:
-            print self.not_connected_message
-            return None
         return self.engine
 
     def get_db_ps1(self, *args, **kwargs):
@@ -248,15 +258,14 @@ class SqlPlugin(Configurable):
             self.metadata_accessor.get_metadata(self.engine, noisy=True)
         return True
 
+    @connected
     def flush_metadata(self):
         """Delete cached schema information"""
-        if not self.connected:
-            print self.not_connected_message
-            return
         print "Deleting metadata..."
         self.metadata_accessor.flush(self.engine)
         self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
+    @connected
     def execute(self, query, params=None, multiparams=None):
         """Execute query against current db connection, return result set.
 
@@ -275,32 +284,30 @@ class SqlPlugin(Configurable):
             params = {}
         if multiparams is None:
             multiparams = []
-        if not self.connected:
-            print self.not_connected_message
-        else:
-            bits = query.split()
-            if (len(bits) == 2 and bits[0].lower() == 'select' and
-                    bits[1] in self.get_metadata().tables):
-                query = 'select * from %s' % bits[1]
-            elif (bits[0].lower() in want_tx and
-                  not self.trans_ctx and not self.autocommit):
-                self.begin()  # create tx before doing modifications
-            elif bits[0].lower() in ddl_commands:
-                rereflect = True
-            conn = self.engine
-            if self.trans_ctx and self.trans_ctx.transaction.is_active:
-                conn = self.trans_ctx.conn
-            try:
-                result = conn.execute(query, *multiparams, **params)
-                if rereflect:  # schema changed
-                    self.metadata_accessor.get_metadata(self.engine,
-                                                        force=True, noisy=True)
-            except Exception, e:
-                if self.debug:  # pragma: nocover
-                    raise
-                print e.message
+        bits = query.split()
+        if (len(bits) == 2 and bits[0].lower() == 'select' and
+                bits[1] in self.get_metadata().tables):
+            query = 'select * from %s' % bits[1]
+        elif (bits[0].lower() in want_tx and
+              not self.trans_ctx and not self.autocommit):
+            self.begin()  # create tx before doing modifications
+        elif bits[0].lower() in ddl_commands:
+            rereflect = True
+        conn = self.engine
+        if self.trans_ctx and self.trans_ctx.transaction.is_active:
+            conn = self.trans_ctx.conn
+        try:
+            result = conn.execute(query, *multiparams, **params)
+            if rereflect:  # schema changed
+                self.metadata_accessor.get_metadata(self.engine,
+                                                    force=True, noisy=True)
+        except Exception, e:
+            if self.debug:  # pragma: nocover
+                raise
+            print e.message
         return result
 
+    @connected
     def run_sql_script(self, script, interactive=False, delimiter='/'):
         """Run all SQL statments found in a text file.
 
@@ -311,9 +318,6 @@ class SqlPlugin(Configurable):
             delimiter: SQL statement delimiter, must be on a new line
                        by itself. default: '/'.
         """
-        if not self.connected:
-            print self.not_connected_message
-            return
         with open(script) as fin:
             current = ''
             while True:
@@ -346,22 +350,18 @@ class SqlPlugin(Configurable):
                 if line == '':
                     break
 
+    @connected
     def begin(self):
         """Start a new transaction against the current db connection."""
-        if not self.connected:
-            print self.not_connected_message
-            return
         if not self.trans_ctx or not self.trans_ctx.transaction.is_active:
             self.trans_ctx = self.engine.begin()
         else:
             print "You are already in a transaction" \
                 " block and nesting is not supported"
 
+    @connected
     def commit(self):
         """Commit current transaction if there was one."""
-        if not self.connected:
-            print self.not_connected_message
-            return
         if self.trans_ctx:
             with self.trans_ctx:
                 pass
@@ -369,17 +369,16 @@ class SqlPlugin(Configurable):
         else:
             print "No active transaction"
 
+    @connected
     def rollback(self):
         """Rollback current transaction if there was one."""
-        if not self.connected:
-            print self.not_connected_message
-            return
         if self.trans_ctx:
             self.trans_ctx.transaction.rollback()
             self.trans_ctx = None
         else:
             print "No active transaction"
 
+    @connected
     def show_tables(self, *globs):
         """Print a list of tablenames matching input glob/s.
 
@@ -390,9 +389,6 @@ class SqlPlugin(Configurable):
             *glob: zero or more globs to match against table names.
 
         """
-        if not self.connected:
-            print self.not_connected_message
-            return
         matches = set()
         tablenames = self.get_metadata().tables
         if not globs:
@@ -404,11 +400,9 @@ class SqlPlugin(Configurable):
         self.render_result(FakedResult(((r,) for r in matches), ['Table']))
         # print '\n'.join(sorted(matches))
 
+    @connected
     def describe(self, table):
         """Print information about a table."""
-        if not self.connected:
-            print self.not_connected_message
-            return
         if table not in self.get_metadata().tables:
             print "Table not found: %s" % table
             return
@@ -464,6 +458,7 @@ class SqlPlugin(Configurable):
                                         'Name Columns Unique'.split()),
                             out, paginate=True, max_fieldsize=5000)
 
+    @connected
     def show_fields(self, *globs):
         """
         Print a list of fields matching the input glob tableglob[.fieldglob].
@@ -473,9 +468,6 @@ class SqlPlugin(Configurable):
         Args:
             *globs: list of [tableglob].[fieldglob] strings
         """
-        if not self.connected:
-            print self.not_connected_message
-            return
 
         def starname(col):
             star = '*' if col.primary_key else ''
@@ -509,20 +501,19 @@ class SqlPlugin(Configurable):
                 if columns:
                     out.write('\n')
 
+    @connected
     def show_joins(self, table):
         """Show all incoming and outgoing joins possible for a table.
         Args:
             table: Table name.
         """
         with self.pager() as out:
-            if not self.connected:
-                out.write(self.not_connected_message)
-                return
             for fk in self.get_metadata().foreign_keys(table):
                 out.write(fk.as_join(reverse=True))
             for fk in self.get_metadata().fields_referencing(table):
                 out.write(fk.as_join())
 
+    @connected
     def what_references(self, arg):
         """Show fields referencing the input table/field arg.
 
@@ -534,9 +525,6 @@ class SqlPlugin(Configurable):
         Args:
             arg: Either a table name or a [table.field] name"""
         with self.pager() as out:
-            if not self.connected:
-                out.write(self.not_connected_message + '\n')
-                return
             bits = arg.split('.', 1)
             tablename = bits[0]
             fieldname = bits[1] if len(bits) > 1 else None
@@ -544,14 +532,12 @@ class SqlPlugin(Configurable):
             for fk in fks:
                 out.write(str(fk) + '\n')
 
+    @connected
     def show_fks(self, table):
         """Show foreign keys for the given table
 
         Args:
             table: A table name."""
-        if not self.connected:
-            print self.not_connected_message
-            return
         fks = self.get_metadata().foreign_keys(table)
         for fk in fks:
             print fk
