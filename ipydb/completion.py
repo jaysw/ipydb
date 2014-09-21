@@ -89,7 +89,7 @@ class IpydbCompleter(object):
 
     restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*')
     renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*'
-                           '|DOUBLE.*|FIXED.*|SHORT.*')
+                           '|DOUBLE.*|FIXED.*|SHORT.*|NUMERIC.*|NUMBER.*')
     redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
 
     def __init__(self, get_db):

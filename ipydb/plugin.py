@@ -7,7 +7,6 @@ The ipydb plugin.
 :license: see LICENSE for more details.
 """
 from ConfigParser import DuplicateSectionError
-import csv
 import fnmatch
 import functools
 import logging
@@ -18,7 +17,7 @@ import sys
 from IPython.config.configurable import Configurable
 import sqlalchemy as sa
 
-from ipydb.utils import multi_choice_prompt
+from ipydb.utils import multi_choice_prompt, UnicodeWriter
 from ipydb.metadata import MetaDataAccessor
 from ipydb import asciitable
 from ipydb.asciitable import FakedResult
@@ -580,6 +579,6 @@ class SqlPlugin(Configurable):
             result: cursor-like object: see render_result()
             out: file-like object to write results to.
         """
-        writer = csv.writer(out)
+        writer = UnicodeWriter(out)
         writer.writerow(cursor.keys())
         writer.writerows(cursor)

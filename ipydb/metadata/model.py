@@ -172,8 +172,8 @@ class ForeignKey(fkclass):
 
 
 restr = re.compile(r'TEXT|VARCHAR.*|CHAR.*', re.I)
-renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*|DOUBLE.*|FIXED.*|SHORT.*',
-                       re.I)
+renumeric = re.compile(r'FLOAT.*|DECIMAL.*|INT.*|DOUBLE.*|'
+                       'FIXED.*|SHORT.*|NUMBER.*|NUMERIC.*', re.I)
 redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP', re.I)
 
 
