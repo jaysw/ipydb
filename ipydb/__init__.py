@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-IPython extension to help you type and execute SQL queries
+ipydb: An IPython extension to help you type and execute SQL queries.
 
 Usage:
     $ ipython
@@ -15,7 +15,7 @@ Usage:
 __title__ = 'ipydb'
 __version__ = '0.0.2-alpha'
 __author__ = 'Jay Sweeney'
-__license__ = 'artistic'
+__license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2012 Jay Sweeney'
 
 import logging

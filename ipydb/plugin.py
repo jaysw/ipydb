@@ -128,7 +128,10 @@ class SqlPlugin(Configurable):
         db = '?'
         if self.engine.url.database:
             db = self.engine.url.database[:15]
-        url = "%s/%s" % (host, db)
+        if host:
+            url = "%s/%s" % (host, db)
+        else:
+            url = db
         return " " + url
 
     def get_transaction_ps1(self, *args, **kw):
