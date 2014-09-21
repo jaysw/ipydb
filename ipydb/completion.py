@@ -93,8 +93,7 @@ class IpydbCompleter(object):
     redate = re.compile(r'DATE|TIME|DATETIME|TIMESTAMP')
 
     def __init__(self, get_db):
-        """Constructor.
-
+        """
         Args:
             get_db: callable that will return an
             instance of ipydb.metadata.model.Database

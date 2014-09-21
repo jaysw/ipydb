@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """Draw ascii tables."""
 import itertools
 import sys

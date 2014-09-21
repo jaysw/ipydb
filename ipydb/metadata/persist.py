@@ -77,7 +77,7 @@ def write_sa_metadata(engine, sa_metadata):
                         'dbindex_id': index_id,
                         'dbcolumn_id': column_id
                     }
-    ins = m.Index.__table__.insert()
+    ins = m.index_column_table.insert()
     ins.values(dbindex_id=sa.bindparam('dbindex_id'),
                dbcolumn_id=sa.bindparam('dbcolumn_id'))
 

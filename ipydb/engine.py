@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """Functions to help create an SQLalchemy connection based upon
 a 'connection configuration file'"""
 import urlparse
@@ -65,11 +67,10 @@ def from_url(url, connect_args={}):
     url_string = url
     url = sa.engine.url.make_url(str(url_string))
     if url.drivername == 'oracle':
-        # not sure why we need this horrible hack -
+        # not sure why we need this horrible _cxmakedsn hack -
         # I think there's some weirdness
         # with cx_oracle/oracle versions I'm using.
         # XXX: disable unicode, for now
-        # os.environ["NLS_LANG"] = ".AL32UTF8"
         import cx_Oracle
         if not getattr(cx_Oracle, '_cxmakedsn', None):
             setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)
