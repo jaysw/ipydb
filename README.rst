@@ -134,7 +134,7 @@ Here's an example of what ``~/.db-connections`` might look like:
 .. code-block:: ini
 
     [mydb]
-    type: mysql
+    type = mysql
     username = root
     password = xxxx
     host = localhost
