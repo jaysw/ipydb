@@ -70,6 +70,11 @@ Start ipython and load the ipydb plugin:
 
     $ ipython
     In [1]: load_ext ipydb
+    
+    
+Documentation
+-------------
+http://ipydb.readthedocs.org/en/latest/
 
 Connecting to Databases
 -----------------------
