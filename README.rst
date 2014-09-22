@@ -58,7 +58,7 @@ Features
  - View query results in ascii-table format piped through less
  - Single-line or multi-line query editing
  - Tab-completion metadata is read in the background and persisted across sessions
- - Cross-database support, thanks to SqlAlchemy: `supported databases <http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases>`_
+ - Cross-database support, thanks to SqlAlchemy: `supported databases <http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases>`_ 
 
 
 Installation
@@ -77,8 +77,8 @@ You will need a python driver for your database of choice. For example:
     $ pip install mysql-python
 
 ipydb uses `SqlAlchemy <http://www.sqlalchemy.org/>`_ to interact with databases.
-See the `Supported Databases<http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases>`_ page
-for a (large!) list of supported `DB-API 2.0<http://www.python.org/dev/peps/pep-0249/>`_ drivers and how to
+See the `Supported Databases <http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#supported-databases>`_ page
+for a (large!) list of supported `DB-API 2.0 <http://www.python.org/dev/peps/pep-0249/>`_ drivers and how to
 write a connection URL for your particular database.
 
 
@@ -119,7 +119,7 @@ Some examples:
     In [4] : connecturl sqlite:///path/to/mydb.sqlite
     In [5] : connecturl sqlite:///:memory:
 
-See the `SqlAlchemy Documentation<http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#database-urls>`_ for further information.
+See the `SqlAlchemy Documentation <http://docs.sqlalchemy.org/en/rel_0_7/core/engines.html#database-urls>`_ for further information.
 
 2. Using ``connect`` and a ``.db-connections`` configuration file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
