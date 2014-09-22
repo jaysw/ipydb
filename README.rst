@@ -54,7 +54,7 @@ Usage
 Features
 --------
 
- - Tab-completion of table names and fields, and joins
+ - Tab-completion of table names, fields and joins
  - View query results in ascii-table format piped through less
  - Single-line or multi-line query editing
  - Tab-completion metadata is read in the background and persisted across sessions
