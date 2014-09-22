@@ -13,7 +13,7 @@ Usage:
 :license: see LICENSE for more details.
 """
 __title__ = 'ipydb'
-__version__ = '0.0.2-alpha'
+__version__ = '0.0.2-beta'
 __author__ = 'Jay Sweeney'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2012 Jay Sweeney'
