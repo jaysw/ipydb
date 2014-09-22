@@ -135,14 +135,14 @@ Here's an example of what ``~/.db-connections`` might look like:
 
     [mydb]
     type: mysql
-    username: root
-    password: xxxx
-    host: localhost
-    database: employees
+    username = root
+    password = xxxx
+    host = localhost
+    database: = employees
 
     [myotherdb]
-    type: sqlite
-    database: /path/to/file.sqlite
+    type = sqlite
+    database = /path/to/file.sqlite
 
 Each database connection defined in ``~/.db-connections`` is
 then referenceable via its [section heading]. So with the
