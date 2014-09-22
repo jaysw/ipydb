@@ -74,7 +74,7 @@ Start ipython and load the ipydb plugin:
     
 Documentation
 -------------
-http://ipydb.readthedocs.org/en/latest/
+http://ipydb.readthedocs.org
 
 Connecting to Databases
 -----------------------
