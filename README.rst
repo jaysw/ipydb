@@ -68,7 +68,7 @@ To install ipydb:
 
 .. code-block:: bash
 
-    $ pip install git+https://github.com/jaysw/ipydb
+    $ pip install ipydb
 
 You will need a python driver for your database of choice. For example:
 
