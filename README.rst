@@ -13,6 +13,7 @@ ipydb is an `IPython <http://ipython.org>`_ plugin for running SQL queries and v
 
 Usage
 -----
+Some demonstration videos are available in the `documentation <http://ipydb.readthedocs.org>`_.
 
 .. code-block:: pycon
 
