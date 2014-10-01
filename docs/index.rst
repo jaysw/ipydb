@@ -17,7 +17,7 @@ Here's some asciicasts showing off some of ipydb's features.
 
     <script type="text/javascript" src="https://asciinema.org/a/12329.js" id="asciicast-12329" async data-speed="2"></script>
 
-2) Schema browsing with ``tables``, ``fields``, ``fks``, ``relationhips`` and
+2) Schema browsing with ``tables``, ``fields``, ``fks``, ``relationships`` and
 ``describe``
 
 .. raw:: html
