@@ -30,6 +30,8 @@ log = logging.getLogger(__name__)
 
 SQLFORMATS = ['csv', 'table']
 
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 
 def connected(f):
     """Decorator - bail if not connected"""

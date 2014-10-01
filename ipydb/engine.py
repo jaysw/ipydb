@@ -70,7 +70,6 @@ def from_url(url, connect_args={}):
         # not sure why we need this horrible _cxmakedsn hack -
         # I think there's some weirdness
         # with cx_oracle/oracle versions I'm using.
-        # XXX: disable unicode, for now
         import cx_Oracle
         if not getattr(cx_Oracle, '_cxmakedsn', None):
             setattr(cx_Oracle, '_cxmakedsn', cx_Oracle.makedsn)

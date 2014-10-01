@@ -99,7 +99,11 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
                 value = value.replace('\n', '^')
                 value = value.replace('\r', '^').replace('\t', ' ')
                 value = fmt % value
-                out.write(value.encode('utf-8'))
+                try:
+                    value = value.encode('utf-8', 'replace')
+                except UnicodeDecodeError:
+                    value = fmt % '?'
+                out.write(value)
             out.write('|\n')
         if not paginate:
             heading_line(sizes)
