@@ -59,7 +59,7 @@ class CompleterTest(unittest.TestCase):
             if not dotted:
                 return itertools.chain(*self.data.values())
             else:
-                return ['%s.%s' % (t, c) for t, cols in self.data.iteritems()
+                return ['%s.%s' % (t, c) for t, cols in self.data.items()
                         for c in cols]
         if dotted:
             return ['%s.%s' % (table, col) for col in self.data[table]]
@@ -135,7 +135,7 @@ class CompleterTest(unittest.TestCase):
             'not**real': 'not**real',
             'lur**foo': 'lur inner join foo on lur.foo_id = foo.first ',
         }
-        for k, v in expansions.iteritems():
+        for k, v in expansions.items():
             nt.assert_equal(self.completer.expand_join_expression(k), v)
 
     def test_join_shortcut(self):
@@ -149,7 +149,7 @@ class CompleterTest(unittest.TestCase):
             'lur**bar': ['lur inner join bar on lur.bar_id = bar.thing '],
 
         }
-        for symbol, expected in expectations.iteritems():
+        for symbol, expected in expectations.items():
             actual = self.completer.join_shortcut(Event(symbol=symbol))
             nt.assert_equal(expected, actual)
 
@@ -159,7 +159,7 @@ class CompleterTest(unittest.TestCase):
             'cs': ['csv'],
             'ta': ['table']
         }
-        for symbol, expected in expectations.iteritems():
+        for symbol, expected in expectations.items():
             actual = self.completer.sql_format(Event(symbol=symbol))
             nt.assert_equal(expected, actual)
 
@@ -178,7 +178,7 @@ class CompleterTest(unittest.TestCase):
             'emp': ['employees'],
             'no': ['northwind']
         }
-        for symbol, expected in expectations.iteritems():
+        for symbol, expected in expectations.items():
             actual = self.completer.connection_nickname(Event(symbol=symbol))
             nt.assert_equal(expected, actual)
 
@@ -189,7 +189,7 @@ class CompleterTest(unittest.TestCase):
             ('select foo**lu', 'foo**lu'): ['foo**lur'],
             ('select foo.first foo.se', 'foo.se'): ['foo.second'],
         }
-        for (line, symbol), expected in expectations.iteritems():
+        for (line, symbol), expected in expectations.items():
             actual = self.completer.sql_statement(
                 Event(line=line, symbol=symbol))
             nt.assert_equal(expected, actual)
@@ -214,7 +214,7 @@ class CompleterTest(unittest.TestCase):
             ('foo = %select -r foo.fi', 'select', 'foo.fi'): ['foo.first'],
             ('zzzz', 'zzzz', 'zzzz'): None,
         }
-        for (line, command, symbol), expected in expectations.iteritems():
+        for (line, command, symbol), expected in expectations.items():
             actual = self.completer.complete(
                 Event(line=line, symbol=symbol, command=command))
             nt.assert_equal(expected, actual)

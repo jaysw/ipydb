@@ -28,7 +28,7 @@ def setup_ipydb_schema():
 def teardown_ipydb_schema():
     try:
         ipsession.commit()
-    except Exception, e:
+    except Exception as e:
         ipsession.rollback()
         raise e
     finally:

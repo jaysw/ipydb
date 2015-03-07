@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
+from future.standard_library import install_aliases
+install_aliases()
 
 """Draw ascii tables."""
 import itertools
 import sys
 
-from utils import termsize
+from past.builtins import basestring
+
+from .utils import termsize
 
 
 class FakedResult(object):
@@ -39,7 +43,7 @@ class PivotResultSet(object):
 
 
 def isublists(l, n):
-    return itertools.izip_longest(*[iter(l)] * n)
+    return itertools.zip_longest(*[iter(l)] * n)
 
 
 def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
@@ -58,15 +62,15 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
 
     def heading_line(sizes):
         for size in sizes:
-            out.write('+' + '-' * (size + 2))
-        out.write('+\n')
+            out.write(u'+' + '-' * (size + 2))
+        out.write(u'+\n')
 
     def draw_headings(headings, sizes):
         heading_line(sizes)
         for idx, size in enumerate(sizes):
-            fmt = '| %%-%is ' % size
+            fmt = u'| %%-%is ' % size
             out.write((fmt % headings[idx]))
-        out.write('|\n')
+        out.write(u'|\n')
         heading_line(sizes)
 
     cols, lines = termsize()
@@ -76,7 +80,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
         cursor = isublists(cursor, lines - 4)
         # else we assume cursor arrive here pre-paginated
     for screenrows in cursor:
-        sizes = heading_sizes[:]
+        sizes = list(heading_sizes)
         for row in screenrows:
             if row is None:
                 break
@@ -90,7 +94,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
             if rw is None:
                 break  # from isublists impl
             for idx, size in enumerate(sizes):
-                fmt = '| %%-%is ' % size
+                fmt = u'| %%-%is ' % size
                 value = rw[idx]
                 if not isinstance(value, basestring):
                     value = str(value)
@@ -99,12 +103,8 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
                 value = value.replace('\n', '^')
                 value = value.replace('\r', '^').replace('\t', ' ')
                 value = fmt % value
-                try:
-                    value = value.encode('utf-8', 'replace')
-                except UnicodeDecodeError:
-                    value = fmt % '?'
                 out.write(value)
-            out.write('|\n')
+            out.write(u'|\n')
         if not paginate:
             heading_line(sizes)
-            out.write('\n')
+            out.write(u'\n')
