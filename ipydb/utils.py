@@ -8,6 +8,7 @@ import time
 from builtins import input
 from past.builtins import basestring
 
+
 class UnicodeWriter:
     """
     A CSV writer which will write rows to CSV file "f",
