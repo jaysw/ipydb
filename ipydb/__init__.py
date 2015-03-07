@@ -89,7 +89,7 @@ def ipydb_help():
 def get_brief_help():
     """return a list of (magic_name, first_line_of_docstring)
     for all the magic methods ipydb defines"""
-    from ipydb.magic import SqlMagics
+    from .magic import SqlMagics
     docs = []
     magics = {}
     magic_thing = SqlMagics.magics
