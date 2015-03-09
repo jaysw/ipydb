@@ -4,7 +4,8 @@ from codecs import open
 from setuptools import setup
 import ipydb
 
-requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse']
+requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse',
+            'future']
 tests_require = ['nose', 'mock']
 extras_require = ['Sphinx==1.2.3', 'sphinx-rtd-theme==0.1.6']
 description = "An IPython extension to help you write and run SQL statements"

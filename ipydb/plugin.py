@@ -6,7 +6,8 @@ The ipydb plugin.
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
-from ConfigParser import DuplicateSectionError
+from __future__ import print_function
+from configparser import DuplicateSectionError
 import fnmatch
 import functools
 import logging
@@ -38,7 +39,7 @@ def connected(f):
     @functools.wraps(f)
     def wrapper(plugin, *args, **kw):
         if not plugin.connected:
-            print plugin.not_connected_message
+            print(plugin.not_connected_message)
             return
         return f(plugin, *args, **kw)
     return wrapper
@@ -184,9 +185,9 @@ class SqlPlugin(Configurable):
                 engine.save_connection(
                     configname, self.engine, overwrite=True)
             else:
-                print "Save aborted"
+                print("Save aborted")
                 return
-        print "`%s` saved to ~/.db-connections" % (configname,)
+        print("`%s` saved to ~/.db-connections" % (configname,))
 
     def connect(self, configname=None):
         """Connect to a database based upon its `nickname`.
@@ -197,13 +198,13 @@ class SqlPlugin(Configurable):
         success = False
 
         def available():
-            print self.connect.__doc__
-            print "Available connection nicknames: %s" % (
-                ' '.join(sorted(configs.keys())))
+            print(self.connect.__doc__)
+            print("Available connection nicknames: %s" % (
+                ' '.join(sorted(configs.keys()))))
         if not configname:
             available()
         elif configname not in configs:
-            print "Config `%s` not found. " % configname
+            print("Config `%s` not found. " % configname)
             available()
         else:
             config = configs[configname]
@@ -225,27 +226,27 @@ class SqlPlugin(Configurable):
             True if connection was successful.
         """
         if self.trans_ctx and self.trans_ctx.transaction.is_active:
-            print "You have an active transaction, either %commit or " \
-                "%rollback before connecting to a new database."
+            print("You have an active transaction, either %commit or "
+                  "%rollback before connecting to a new database.")
             return False
         try:
             parsed_url = sa.engine.url.make_url(str(url))
         except sa.exc.ArgumentError as e:
-            print e
+            print(e)
             return False
         safe_url = self.safe_url(parsed_url)
         if safe_url:
-            print "ipydb is connecting to: %s" % safe_url
+            print("ipydb is connecting to: %s" % safe_url)
         try:
             self.engine = engine.from_url(parsed_url,
                                           connect_args=connect_args)
         except ImportError:  # pragma: nocover
-            print "It looks like you don't have a driver for %s.\n" \
-                "See the following URL for supported " \
-                "database drivers:\n\t%s" % (
+            print("It looks like you don't have a driver for %s.\n"
+                  "See the following URL for supported "
+                  "database drivers:\n\t%s" % (
                     parsed_url.drivername,
                     'http://docs.sqlalchemy.org/en/latest/'
-                    'dialects/index.html#included-dialects')
+                    'dialects/index.html#included-dialects'))
             return False
         # force a connect so that we can fail early if the connection url won't
         # work
@@ -253,7 +254,7 @@ class SqlPlugin(Configurable):
             with self.engine.connect():
                 pass
         except sa.exc.OperationalError as e:  # pragma: nocover
-            print e
+            print(e)
             return False
 
         self.connected = True
@@ -265,7 +266,7 @@ class SqlPlugin(Configurable):
     @connected
     def flush_metadata(self):
         """Delete cached schema information"""
-        print "Deleting metadata..."
+        print("Deleting metadata...")
         self.metadata_accessor.flush(self.engine)
         self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
@@ -305,10 +306,10 @@ class SqlPlugin(Configurable):
             if rereflect:  # schema changed
                 self.metadata_accessor.get_metadata(self.engine,
                                                     force=True, noisy=True)
-        except Exception, e:  # pragma: nocover
+        except Exception as e:  # pragma: nocover
             if self.debug:
                 raise
-            print e.message
+            print(e.message)
         return result
 
     @connected
@@ -328,7 +329,7 @@ class SqlPlugin(Configurable):
                 line = fin.readline()
                 if line.strip() == delimiter or (line == '' and current):
                     if interactive:
-                        print current
+                        print(current)
                         choice = multi_choice_prompt(
                             'Run this statement '
                             '([y]es, [n]o, [a]ll, [q]uit):',
@@ -360,8 +361,8 @@ class SqlPlugin(Configurable):
         if not self.trans_ctx or not self.trans_ctx.transaction.is_active:
             self.trans_ctx = self.engine.begin()
         else:
-            print "You are already in a transaction" \
-                " block and nesting is not supported"
+            print("You are already in a transaction"
+                  " block and nesting is not supported")
 
     @connected
     def commit(self):
@@ -371,7 +372,7 @@ class SqlPlugin(Configurable):
                 pass
             self.trans_ctx = None
         else:
-            print "No active transaction"
+            print("No active transaction")
 
     @connected
     def rollback(self):
@@ -380,7 +381,7 @@ class SqlPlugin(Configurable):
             self.trans_ctx.transaction.rollback()
             self.trans_ctx = None
         else:
-            print "No active transaction"
+            print("No active transaction")
 
     @connected
     def show_tables(self, *globs):
@@ -408,7 +409,7 @@ class SqlPlugin(Configurable):
     def describe(self, table):
         """Print information about a table."""
         if table not in self.get_metadata().tables:
-            print "Table not found: %s" % table
+            print("Table not found: %s" % table)
             return
         tbl = self.get_metadata().tables[table]
 
@@ -421,38 +422,38 @@ class SqlPlugin(Configurable):
         with self.pager() as out:
             items = ((namestr(c), c.type, nullstr(c.nullable))
                      for c in tbl.columns)
-            out.write('Columns' + '\n')
+            out.write(u'Columns' + '\n')
             asciitable.draw(
                 FakedResult(sorted(items), 'Name Type Nullable'.split()),
                 out, paginate=True,
                 max_fieldsize=5000)
-            out.write('\n')
-            out.write('Primary Key (*)\n')
-            out.write('---------------\n')
-            pk = ', '.join(c.name for c in tbl.columns if c.primary_key)
-            out.write('  ')
+            out.write(u'\n')
+            out.write(u'Primary Key (*)\n')
+            out.write(u'---------------\n')
+            pk = u', '.join(c.name for c in tbl.columns if c.primary_key)
+            out.write(u'  ')
             if not pk:
-                out.write('(None Found!)')
+                out.write(u'(None Found!)')
             else:
                 out.write(pk)
-            out.write('\n\n')
-            out.write('Foreign Keys\n')
-            out.write('------------\n')
+            out.write(u'\n\n')
+            out.write(u'Foreign Keys\n')
+            out.write(u'------------\n')
             fks = self.get_metadata().foreign_keys(table)
             fk = None
             for fk in fks:
-                out.write('  %s\n' % str(fk))
+                out.write(u'  %s\n' % str(fk))
             if fk is None:
-                out.write('  (None Found)')
-            out.write('\n\nReferences to %s\n' % table)
-            out.write('--------------' + '-' * len(table) + '\n')
+                out.write(u'  (None Found)')
+            out.write(u'\n\nReferences to %s\n' % table)
+            out.write(u'--------------' + '-' * len(table) + '\n')
             fks = self.get_metadata().fields_referencing(table)
             fk = None
             for fk in fks:
-                out.write('  ' + str(fk) + '\n')
+                out.write(u'  ' + str(fk) + '\n')
             if fk is None:
-                out.write('  (None found)\n')
-            out.write('\n\nIndexes' + '\n')
+                out.write(u'  (None found)\n')
+            out.write(u'\n\nIndexes' + '\n')
 
             def items():
                 for idx in self.get_metadata().indexes(table):
@@ -494,16 +495,16 @@ class SqlPlugin(Configurable):
                     columns = table.columns
                 columns = {starname(c): c for c in columns}
                 if columns:
-                    out.write(table.name + '\n')
-                    out.write('-' * len(table.name) + '\n')
+                    out.write(table.name + u'\n')
+                    out.write(u'-' * len(table.name) + u'\n')
                 for starcol in sorted(columns):
                     col = columns[starcol]
-                    out.write("    %-35s%s %s\n" % (
+                    out.write(u"    %-35s%s %s\n" % (
                         starcol,
                         col.type,
                         'NULL' if col.nullable else 'NOT NULL'))
                 if columns:
-                    out.write('\n')
+                    out.write(u'\n')
 
     @connected
     def show_joins(self, table):
@@ -513,9 +514,9 @@ class SqlPlugin(Configurable):
         """
         with self.pager() as out:
             for fk in self.get_metadata().foreign_keys(table):
-                out.write('%s\n' % fk.as_join(reverse=True))
+                out.write(u'%s\n' % fk.as_join(reverse=True))
             for fk in self.get_metadata().fields_referencing(table):
-                out.write('%s\n' % fk.as_join())
+                out.write(u'%s\n' % fk.as_join())
 
     @connected
     def what_references(self, arg):
@@ -534,7 +535,7 @@ class SqlPlugin(Configurable):
             fieldname = bits[1] if len(bits) > 1 else None
             fks = self.get_metadata().fields_referencing(tablename, fieldname)
             for fk in fks:
-                out.write(str(fk) + '\n')
+                out.write(str(fk) + u'\n')
 
     @connected
     def show_fks(self, table):
@@ -545,7 +546,7 @@ class SqlPlugin(Configurable):
         with self.pager() as out:
             fks = self.get_metadata().foreign_keys(table)
             for fk in fks:
-                out.write(str(fk) + '\n')
+                out.write(str(fk) + u'\n')
 
     def pager(self):
         return Pager()

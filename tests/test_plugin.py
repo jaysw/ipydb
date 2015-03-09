@@ -1,6 +1,6 @@
-from ConfigParser import DuplicateSectionError
+from configparser import DuplicateSectionError
 import re
-from StringIO import StringIO
+from io import StringIO
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt
@@ -49,9 +49,9 @@ class TestSqlPlugin(object):
         self.ip.engine.begin.return_value = self.ip.engine
         self.ip.trans_ctx = self.ip.engine
         self.ip.trans_ctx.conn = self.ip.engine
-        s1 = "update table foo set bar = 1 where baz = 2\n"
-        s2 = 'delete from spam where eggs = 1\n'
-        statements = "{s1}/\n{s2}/\n".format(s1=s1, s2=s2)
+        s1 = u"update table foo set bar = 1 where baz = 2\n"
+        s2 = u'delete from spam where eggs = 1\n'
+        statements = u"{s1}/\n{s2}/\n".format(s1=s1, s2=s2)
         sio = StringIO(statements)
         mo = mock.mock_open(read_data=statements)
         handle = mo.return_value

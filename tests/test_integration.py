@@ -1,11 +1,12 @@
 """Some integration tests using the chinook example db."""
+from __future__ import print_function
 
 import shutil
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt
 import mock
-from StringIO import StringIO
+from io import StringIO
 
 import ipydb
 from ipydb import plugin, engine
@@ -43,7 +44,7 @@ class TestIntegraion(object):
         self.ipydb.get_reflecting_ps1()
         self.m.flushmetadata('')
         self.m.describe('Album')
-        print self.out.getvalue()
+        print(self.out.getvalue())
 
     def test_help(self):
         ipydb.ipydb_help()  # XXX: assert somthing...
@@ -56,7 +57,7 @@ class TestIntegraion(object):
         self.m.sqlformat('vsc')
         self.m.sqlformat('csv')
         self.m.rereflect('')
-        print self.out.getvalue()
+        print(self.out.getvalue())
 
     def teardown(self):
         self.pgetconfigs.stop()

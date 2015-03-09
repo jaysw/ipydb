@@ -2,8 +2,11 @@
 
 """Functions to help create an SQLalchemy connection based upon
 a 'connection configuration file'"""
-import urlparse
-from ConfigParser import ConfigParser, DuplicateSectionError
+from future.standard_library import install_aliases
+install_aliases()
+
+from urllib import parse
+from configparser import ConfigParser, DuplicateSectionError
 
 import sqlalchemy as sa
 
@@ -101,7 +104,7 @@ def make_connection_url(config):
         password=config.get('password'), host=config.get('host'),
         port=config.get('port') or None,
         database=config.get('database'),
-        query=dict(urlparse.parse_qsl(config.get('query', ''))))
+        query=dict(parse.parse_qsl(config.get('query', ''))))
 
 
 def save_connection(name, engine, overwrite=False):

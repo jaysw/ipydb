@@ -4,6 +4,7 @@
 This module provides functionality for readline-style
 tab-completion of SQL statements and other ipydb commands.
 """
+from __future__ import print_function
 import itertools
 import logging
 import re
@@ -38,14 +39,14 @@ def ipydb_complete(self, event):
     try:
         if sqlplugin:
             if sqlplugin.debug:
-                print 'complete: sym=[%s] line=[%s] tuc=[%s]' % (
-                    event.symbol, event.line, event.text_until_cursor)
+                print('complete: sym=[%s] line=[%s] tuc=[%s]' % (
+                    event.symbol, event.line, event.text_until_cursor))
             completions = sqlplugin.completer.complete(event)
             if sqlplugin.debug:
-                print 'completions:', completions
+                print('completions:', completions)
             return completions
-    except Exception, e:
-        print repr(e)
+    except Exception as e:
+        print(repr(e))
         if sqlplugin and sqlplugin.debug:
             import traceback
             traceback.print_exc()
@@ -215,7 +216,7 @@ class IpydbCompleter(object):
             for tbl in reversed(tables):
                 joins = self.db.get_joins(tbl, tail)
                 if joins:
-                    join = iter(joins).next()  # XXX: take a punt
+                    join = next(iter(joins))  # XXX: take a punt
                     joinstr = 'inner join %s on ' % (tail)
                     sep = ''
                     for idx, col in enumerate(join.columns):

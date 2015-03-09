@@ -7,6 +7,7 @@ a database schema.
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+from __future__ import print_function
 
 import base64
 from collections import defaultdict
@@ -49,7 +50,7 @@ def get_metadata_engine(other_engine):
     if not os.path.exists(path):
         os.makedirs(path)
     dbfilename = get_db_filename(other_engine)
-    dburl = 'sqlite:////%s' % os.path.join(path, dbfilename)
+    dburl = u'sqlite:////%s' % os.path.join(path, dbfilename)
     return dbfilename, sa.create_engine(dburl)
 
 
@@ -60,7 +61,7 @@ def get_db_filename(engine):
     url = engine.url
     url = str(URL(url.drivername, url.username, host=url.host,
                   port=url.port, database=url.database))
-    return base64.urlsafe_b64encode(url)
+    return str(base64.urlsafe_b64encode(url.encode('utf-8')))
 
 
 @contextmanager
@@ -126,7 +127,7 @@ class MetaDataAccessor(object):
             db = self.read_expunge(ipydb_engine)
             self.databases[db_key] = db
             if noisy:
-                print "ipydb is fetching database metadata"
+                print("ipydb is fetching database metadata")
             self.spawn_reflection_thread(db_key, db, engine.url)
             return db
         if db.age > MAX_CACHE_AGE:
@@ -140,7 +141,7 @@ class MetaDataAccessor(object):
                 # Spawn a thread to do the slow sqlalchemy reflection,
                 # return whatever we have
                 if noisy:
-                    print "ipydb is fetching database metadata"
+                    print("ipydb is fetching database metadata")
                 self.spawn_reflection_thread(db_key, db, engine.url)
         return db
 

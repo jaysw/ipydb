@@ -12,14 +12,16 @@ Usage:
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+from __future__ import print_function
+
+import logging
+import os
+
 __title__ = 'ipydb'
 __version__ = '0.0.2'
 __author__ = 'Jay Sweeney'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright 2012 Jay Sweeney'
-
-import logging
-import os
 
 PLUGIN_NAME = 'ipydb'
 _loaded = False
@@ -29,7 +31,7 @@ CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.db-connections')
 
 def load_ipython_extension(ip):
     """Load the ipydb into the active ipython session"""
-    from plugin import SqlPlugin
+    from .plugin import SqlPlugin
     global _loaded
     if not _loaded:
         plugin = SqlPlugin(shell=ip, config=ip.config)
@@ -60,34 +62,34 @@ def configure_prompt(ipydb):
 
 
 def ipydb_help():
-    msg = "Welcome to ipydb %s!" % __version__
-    print msg
-    print
-    msg2 = 'ipydb has added the following `magic` ' \
+    msg = u"Welcome to ipydb %s!" % __version__
+    print(msg)
+    print()
+    msg2 = u'ipydb has added the following `magic` ' \
         'commands to your ipython session:'
-    print msg2
+    print(msg2)
     helps = get_brief_help()
     maxname = max(map(len, (r[0] for r in helps)))
-    print '-' * (maxname + 5)
+    print('-' * (maxname + 5))
     for magic, doc in helps:
-        print ("    %%%-" + str(maxname) + "s    %s") % (magic, doc)
-    print '-' * (maxname + 5)
-    print
-    print "You can get detailed usage information " \
-        "for any of the above commands "
-    print "by typing %magic_command_name? For example, " \
-        "to get help on %connect, type"
-    print
-    print "    %connect?"
-    print
-    print "Get started by connecting to a database " \
-        "using %connect_url or %connect"
+        print((u"    %%%-" + str(maxname) + "s    %s") % (magic, doc))
+    print('-' * (maxname + 5))
+    print()
+    print("You can get detailed usage information "
+          "for any of the above commands ")
+    print("by typing %magic_command_name? For example, "
+          "to get help on %connect, type")
+    print()
+    print("    %connect?")
+    print()
+    print("Get started by connecting to a database "
+          "using %connect_url or %connect")
 
 
 def get_brief_help():
     """return a list of (magic_name, first_line_of_docstring)
     for all the magic methods ipydb defines"""
-    from magic import SqlMagics
+    from .magic import SqlMagics
     docs = []
     magics = {}
     magic_thing = SqlMagics.magics

@@ -2,8 +2,11 @@
 
 import codecs
 import csv
-import cStringIO
+from io import StringIO
 import time
+
+from builtins import input
+from past.builtins import basestring
 
 
 class UnicodeWriter:
@@ -14,13 +17,14 @@ class UnicodeWriter:
 
     def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
         # Redirect output to a queue
-        self.queue = cStringIO.StringIO()
+        self.queue = StringIO()
         self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
         self.stream = f
         self.encoder = codecs.getincrementalencoder(encoding)()
 
     def writerow(self, row):
-        self.writer.writerow([s.encode("utf-8") if isinstance(s, basestring) else s for s in row])
+        self.writer.writerow([s.encode("utf-8") if isinstance(s, basestring)
+                              else s for s in row])
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
         data = data.decode("utf-8")
@@ -40,7 +44,7 @@ def multi_choice_prompt(prompt, choices, default=None):
     ans = None
     while ans not in choices.keys():
         try:
-            ans = raw_input(prompt + ' ').lower()
+            ans = input(prompt + ' ').lower()
             if not ans:  # response was an empty string
                 ans = default
         except KeyboardInterrupt:

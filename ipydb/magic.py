@@ -6,6 +6,7 @@ IPython magic commands registered by ipydb
 :copyright: (c) 2012 by Jay Sweeney.
 :license: see LICENSE for more details.
 """
+from __future__ import print_function
 import logging
 
 from IPython.core.magic import Magics, magics_class, \
@@ -78,8 +79,8 @@ class SqlMagics(Magics):
             self.ipydb.do_reflection = False
         else:
             self.ipydb.do_reflection = True
-        print 'Schema reflection: %s' % (
-            'on' if self.ipydb.do_reflection else 'off')
+        print('Schema reflection: %s' % (
+            'on' if self.ipydb.do_reflection else 'off'))
 
     @line_magic
     def engine(self, arg):
@@ -97,7 +98,7 @@ class SqlMagics(Magics):
             self.ipydb.debug = True
             root_logger = logging.getLogger()
             root_logger.setLevel(logging.DEBUG)
-        print "ipydb debugging is", 'on' if self.ipydb.debug else 'off'
+        print("ipydb debugging is", 'on' if self.ipydb.debug else 'off')
 
     @line_magic
     def begin(self, arg):
@@ -178,7 +179,7 @@ class SqlMagics(Magics):
             if args.ret:
                 return sqlstr
             else:
-                print "\n%s" % sqlstr
+                print("\n%s" % sqlstr)
             return
         if args.params:
             params = self.shell.user_ns.get(args.params, {})
@@ -198,7 +199,7 @@ class SqlMagics(Magics):
         elif result and not result.returns_rows:
             # XXX: do all drivers support this?
             s = 's' if result.rowcount != 1 else ''
-            print "%i row%s affected" % (result.rowcount, s)
+            print("%i row%s affected" % (result.rowcount, s))
     sql.__description__ = 'Run an sql statement against ' \
         'the current ipydb connection.'
 
@@ -272,7 +273,7 @@ class SqlMagics(Magics):
             level = logging.INFO
             self.ipydb.show_sql = True
         logging.getLogger('sqlalchemy.engine').setLevel(level)
-        print 'SQL logging %s' % ('on' if self.ipydb.show_sql else 'off')
+        print('SQL logging %s' % ('on' if self.ipydb.show_sql else 'off'))
 
     @line_magic
     def references(self, param=""):
@@ -288,7 +289,7 @@ class SqlMagics(Magics):
                 : shows all fields having a foreign key referencing person.id
         """
         if not param.strip() or len(param.split()) != 1:
-            print "Usage: %references TABLE_NAME[.FIELD_NAME]"
+            print("Usage: %references TABLE_NAME[.FIELD_NAME]")
             return
         self.ipydb.what_references(param)
 
@@ -304,7 +305,7 @@ class SqlMagics(Magics):
         Usage: %joins TABLE_NAME
         """
         if not param.strip() or len(param.split()) != 1:
-            print "Usage: %show_joins TABLE_NAME"
+            print("Usage: %show_joins TABLE_NAME")
             return
         self.ipydb.show_joins(param)
 
@@ -315,7 +316,7 @@ class SqlMagics(Magics):
         Usage: %fks TABLE_NAME
         """
         if not param.strip() or len(param.split()) != 1:
-            print "Usage: %show_fks TABLE_NAME"
+            print("Usage: %show_fks TABLE_NAME")
             return
         self.ipydb.show_fks(param)
 
@@ -324,10 +325,10 @@ class SqlMagics(Magics):
         """Change the output format."""
         from ipydb.plugin import SQLFORMATS
         if not param or param not in SQLFORMATS:
-            print self.sqlformat.__doc__
+            print(self.sqlformat.__doc__)
         else:
             self.ipydb.sqlformat = param
-            print "output format: %s" % self.ipydb.sqlformat
+            print("output format: %s" % self.ipydb.sqlformat)
 
     @line_magic
     def connect(self, param):
@@ -393,7 +394,7 @@ class SqlMagics(Magics):
     def rereflect(self, arg):
         """Force re-loading of completion metadata."""
         if not self.ipydb.connected:
-            print self.ipydb.not_connected_message
+            print(self.ipydb.not_connected_message)
             return
         self.ipydb.metadata_accessor.get_metadata(
             self.ipydb.engine, force=True, noisy=True)
@@ -411,10 +412,10 @@ class SqlMagics(Magics):
         with the current engine's connection parameters.
         """
         if not self.ipydb.connected:
-            print self.ipydb.not_connected_message
+            print(self.ipydb.not_connected_message)
             return
         if not len(arg.strip()):
-            print "Usage: %saveconnection NICKNAME. \n\n" + \
-                "Please supply a NICKNAME to store the connection against."
+            print("Usage: %saveconnection NICKNAME. \n\n"
+                  "Please supply a NICKNAME to store the connection against.")
             return
         self.ipydb.save_connection(arg)
