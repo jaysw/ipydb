@@ -1,6 +1,7 @@
 import itertools
 import unittest
 
+from future.utils import viewitems
 import nose.tools as nt
 
 from ipydb.metadata import model as m
@@ -77,7 +78,7 @@ class ModelTest(unittest.TestCase):
             ('TIME', False, None): "current_time",
             ('TIMESTAMP', False, None): "current_timestamp",
         }
-        for (typ, nullable, default), expected in expectations.iteritems():
+        for (typ, nullable, default), expected in viewitems(expectations):
             col = m.Column(id=1, table_id=1, name='first',
                            primary_key=True,
                            type=typ,
@@ -87,7 +88,7 @@ class ModelTest(unittest.TestCase):
 
     def test_columns(self):
         cols = itertools.chain(*[t.columns for t in self.tables])
-        nt.assert_equal(sorted(cols), sorted(self.db.columns))
+        nt.assert_equal(set(cols), set(self.db.columns))
 
     def test_fieldnames(self):
         cols = itertools.chain(*[t.columns for t in self.tables])
@@ -143,6 +144,6 @@ class ModelTest(unittest.TestCase):
         nt.assert_equal(set(), set(self.db.indexes('foo')))
 
     def test_as_join(self):
-        fk = iter(self.lur_foo).next()
+        fk = next(iter(self.lur_foo))
         exp = 'foo inner join lur on foo.first = lur.foo_id'
         nt.assert_equal(exp, fk.as_join())

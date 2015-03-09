@@ -16,6 +16,7 @@ import sys
 
 
 from IPython.config.configurable import Configurable
+from future.utils import viewvalues
 import sqlalchemy as sa
 
 from ipydb.utils import multi_choice_prompt, UnicodeWriter
@@ -488,7 +489,7 @@ class SqlPlugin(Configurable):
                         yield c
 
         with self.pager() as out:
-            for table in self.get_metadata().tables.itervalues():
+            for table in viewvalues(self.get_metadata().tables):
                 if globs:
                     columns = list(glob_columns(table))
                 else:

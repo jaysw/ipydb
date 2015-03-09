@@ -10,6 +10,8 @@ import itertools
 import logging
 import re
 
+import future
+from future.utils import viewvalues
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declarative_base
@@ -49,21 +51,22 @@ class Database(object):
             self.tables[t.name] = t
             if self.modified is None:
                 self.modified = t.modified
-            self.modified = min(self.modified, t.modified)
+            self.modified = min(self.modified, t.modified,
+                                key=lambda x: '' if x is None else x)
 
     def tablenames(self):
         return list(self.tables)
 
     @property
     def columns(self):
-        for t in self.tables.itervalues():
+        for t in viewvalues(self.tables):
             for c in t.columns:
                 yield c
 
     def fieldnames(self, table=None, dotted=False):
         ret = set()
         if table is None:  # all field names
-            for t in self.tables.itervalues():
+            for t in viewvalues(self.tables):
                 if dotted:
                     ret.update(['%s.%s' % (t.name, c.name) for c in t.columns])
                 else:
