@@ -171,6 +171,8 @@ class SqlPlugin(Configurable):
         Returns:
             Instance of ipydb.metadata.Database().
         """
+        if not self.do_reflection:
+            return
         if not self.connected:
             return model.Database()
         return self.metadata_accessor.get_metadata(self.engine)
@@ -268,8 +270,9 @@ class SqlPlugin(Configurable):
     def flush_metadata(self):
         """Delete cached schema information"""
         print("Deleting metadata...")
-        self.metadata_accessor.flush(self.engine)
-        self.metadata_accessor.get_metadata(self.engine, noisy=True)
+        if self.do_reflection:
+            self.metadata_accessor.flush(self.engine)
+            self.metadata_accessor.get_metadata(self.engine, noisy=True)
 
     @connected
     def execute(self, query, params=None, multiparams=None):
@@ -304,7 +307,7 @@ class SqlPlugin(Configurable):
             conn = self.trans_ctx.conn
         try:
             result = conn.execute(query, *multiparams, **params)
-            if rereflect:  # schema changed
+            if rereflect and self.do_reflection:  # schema changed
                 self.metadata_accessor.get_metadata(self.engine,
                                                     force=True, noisy=True)
         except Exception as e:  # pragma: nocover
