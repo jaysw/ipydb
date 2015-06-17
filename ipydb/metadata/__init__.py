@@ -28,7 +28,7 @@ from . import model as m
 from . import persist
 
 # invalidate db metadata if it is older than CACHE_MAX_AGE
-MAX_CACHE_AGE = dt.timedelta(minutes=20)
+MAX_CACHE_AGE = dt.timedelta(minutes=180)
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class MetaDataAccessor(object):
             session.expunge_all()  # unhook SA
         return db
 
-    def get_metadata(self, engine, noisy=False, force=False):
+    def get_metadata(self, engine, noisy=False, force=False, do_reflection=True):
         """Fetch metadata for an sqlalchemy engine"""
         db_key, ipydb_engine = get_metadata_engine(engine)
         create_schema(ipydb_engine)
@@ -120,6 +120,8 @@ class MetaDataAccessor(object):
         if db.reflecting:
             log.debug('Is already reflecting')
             # we're already busy
+            return db
+        if not do_reflection:
             return db
         if force:
             log.debug('was foreced to re-reflect')

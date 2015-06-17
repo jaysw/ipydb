@@ -171,11 +171,10 @@ class SqlPlugin(Configurable):
         Returns:
             Instance of ipydb.metadata.Database().
         """
-        if not self.do_reflection:
-            return
         if not self.connected:
             return model.Database()
-        return self.metadata_accessor.get_metadata(self.engine)
+        return self.metadata_accessor.get_metadata(
+            self.engine, do_reflection=self.do_reflection)
 
     def save_connection(self, configname):
         """Save the current connection to ~/.db-connections."""
