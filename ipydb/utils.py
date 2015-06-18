@@ -2,7 +2,7 @@
 
 import codecs
 import csv
-from io import StringIO
+from io import BytesIO as StringIO
 import time
 
 from builtins import input
