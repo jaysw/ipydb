@@ -2,7 +2,7 @@
 
 import codecs
 import csv
-from io import StringIO
+from io import BytesIO as StringIO
 import time
 
 from builtins import input
@@ -23,8 +23,12 @@ class UnicodeWriter:
         self.encoder = codecs.getincrementalencoder(encoding)()
 
     def writerow(self, row):
-        self.writer.writerow([s.encode("utf-8") if isinstance(s, basestring)
-                              else s for s in row])
+        try:
+            self.writer.writerow([s.decode('utf8').encode("utf-8") if isinstance(s, basestring)
+                                  else s for s in row])
+        except:
+            self.writer.writerow([s.encode("utf-8") if isinstance(s, basestring)
+                                  else s for s in row])
         # Fetch UTF-8 output from the queue ...
         data = self.queue.getvalue()
         data = data.decode("utf-8")
