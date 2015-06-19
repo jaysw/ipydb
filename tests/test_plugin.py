@@ -1,6 +1,6 @@
 from configparser import DuplicateSectionError
 import re
-from io import StringIO
+from StringIO import StringIO
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt

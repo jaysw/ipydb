@@ -6,7 +6,7 @@ import shutil
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt
 import mock
-from io import StringIO
+from StringIO import StringIO
 
 import ipydb
 from ipydb import plugin, engine
