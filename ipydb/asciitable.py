@@ -106,7 +106,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
                     value = fmt % value
                 except UnicodeDecodeError:
                     value = fmt % value.decode('utf8')
-                out.write(value.encode('utf8'))
+                out.write(value)
             out.write(u'|\n')
         if not paginate:
             heading_line(sizes)
