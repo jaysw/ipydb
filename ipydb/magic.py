@@ -242,6 +242,22 @@ class SqlMagics(Magics):
         self.ipydb.show_tables(*param.split())
 
     @line_magic
+    def views(self, param=''):
+        """Show a list of views for the current db connection.
+
+        Usage: %views [GLOB1 GLOB2...]
+
+        Show views matching GLOB if given
+        Example usage:
+            %views
+                : lists all avaiable views for the current connection
+            %views *p* *z*
+                : shows views having a 'p' or a 'z' in their name
+
+        """
+        self.ipydb.show_tables(*param.split(), views=True)
+
+    @line_magic
     def fields(self, param=''):
         """Show a list of fields and data types for the given table.
 

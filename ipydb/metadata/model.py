@@ -54,6 +54,12 @@ class Database(object):
             self.modified = min(self.modified, t.modified,
                                 key=lambda x: '' if x is None else x)
 
+    @property
+    def views(self):
+        for t in viewvalues(self.tables):
+            if t.isview:
+                yield t
+
     def tablenames(self):
         return list(self.tables)
 
@@ -220,6 +226,7 @@ class Table(Base, TimesMixin):
     __tablename__ = 'dbtable'
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String, index=True, unique=True)
+    isview = sa.Column(sa.Boolean, default=False, nullable=False)
 
     def column(self, name):
         for column in self.columns:

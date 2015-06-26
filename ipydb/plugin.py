@@ -387,7 +387,7 @@ class SqlPlugin(Configurable):
             print("No active transaction")
 
     @connected
-    def show_tables(self, *globs):
+    def show_tables(self, *globs, **kw):
         """Print a list of tablenames matching input glob/s.
 
         All table names are printed if no glob is given, otherwise
@@ -395,10 +395,15 @@ class SqlPlugin(Configurable):
 
         Args:
             *glob: zero or more globs to match against table names.
+        Kwargs:
+            views: (bool) show views only
 
         """
         matches = set()
-        tablenames = self.get_metadata().tables
+        if kw.get('views'):
+            tablenames = [v.name for v in self.get_metadata().views]
+        else:
+            tablenames = self.get_metadata().tables
         if not globs:
             matches = tablenames
         else:

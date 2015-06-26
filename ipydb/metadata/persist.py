@@ -1,9 +1,30 @@
 """Persists (and reads) SQLAlchemy metadata representations to a local db."""
+import logging
 
 import sqlalchemy as sa
 from sqlalchemy import orm
 
 from ipydb.metadata import model as m
+
+log = logging.getLogger(__name__)
+
+
+def getviews(metadata):
+    views = []
+    try:
+        res = metadata.bind.execute(
+            '''
+            select
+                table_name
+            from
+                information_schema.views
+            where
+                table_schema = 'public'
+            ''')
+        views = [{'name': row.table_name, 'isview': True} for row in res]
+    except sa.exc.OperationalError:
+        log.debug('Error fetching view from information_schema', exc_info=1)
+    return views
 
 
 def write_sa_metadata(engine, sa_metadata):
@@ -11,10 +32,17 @@ def write_sa_metadata(engine, sa_metadata):
 
     We can assume that engine is a bunch of empty tables, hence
     should not need to do upsert/existence checking.
+    Args:
+        engine - SA engine for the ipydb sqlite db
+        sa_metadata - bound metadata object for the
+                      currently connected user db.
     """
     data = [{'name': t.name} for t in sa_metadata.sorted_tables]
     if data:
         engine.execute(m.Table.__table__.insert(), data)
+    views = getviews(sa_metadata)
+    if views:
+        engine.execute(m.Table.__table__.insert(), views)
     result = engine.execute('select name, id from dbtable')
     tableidmap = dict(result.fetchall())
 
