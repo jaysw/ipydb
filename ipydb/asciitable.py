@@ -62,15 +62,15 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
 
     def heading_line(sizes):
         for size in sizes:
-            out.write(u'+' + '-' * (size + 2))
-        out.write(u'+\n')
+            out.write(b'+' + b'-' * (size + 2))
+        out.write(b'+\n')
 
     def draw_headings(headings, sizes):
         heading_line(sizes)
         for idx, size in enumerate(sizes):
-            fmt = u'| %%-%is ' % size
-            out.write((fmt % headings[idx]))
-        out.write(u'|\n')
+            fmt = '| %%-%is ' % size
+            out.write((fmt % headings[idx]).encode('utf8'))
+        out.write(b'|\n')
         heading_line(sizes)
 
     cols, lines = termsize()
@@ -94,7 +94,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
             if rw is None:
                 break  # from isublists impl
             for idx, size in enumerate(sizes):
-                fmt = u'| %%-%is ' % size
+                fmt = '| %%-%is ' % size
                 value = rw[idx]
                 if not isinstance(value, basestring):
                     value = str(value)
@@ -106,8 +106,8 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
                     value = fmt % value
                 except UnicodeDecodeError:
                     value = fmt % value.decode('utf8')
-                out.write(value)
-            out.write(u'|\n')
+                out.write(value.encode('utf8'))
+            out.write(b'|\n')
         if not paginate:
             heading_line(sizes)
-            out.write(u'\n')
+            out.write(b'\n')

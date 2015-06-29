@@ -112,6 +112,10 @@ class SqlPlugin(Configurable):
         self.shell.set_hook('complete_command',
                             ipydb_complete, re_key=reassignment)
 
+    def set_debug(self, debug):
+        self.debug = debug
+        self.metadata_accessor.debug = debug
+
     @connected
     def get_engine(self):
         """Returns current sqlalchemy engine reference, if there was one."""
@@ -430,46 +434,46 @@ class SqlPlugin(Configurable):
         with self.pager() as out:
             items = ((namestr(c), c.type, nullstr(c.nullable))
                      for c in tbl.columns)
-            out.write(u'Columns' + '\n')
+            out.write(b'Columns' + b'\n')
             asciitable.draw(
                 FakedResult(sorted(items), 'Name Type Nullable'.split()),
                 out, paginate=True,
                 max_fieldsize=5000)
-            out.write(u'\n')
-            out.write(u'Primary Key (*)\n')
-            out.write(u'---------------\n')
-            pk = u', '.join(c.name for c in tbl.columns if c.primary_key)
-            out.write(u'  ')
+            out.write(b'\n')
+            out.write(b'Primary Key (*)\n')
+            out.write(b'---------------\n')
+            pk = ', '.join(c.name for c in tbl.columns if c.primary_key)
+            out.write(b'  ')
             if not pk:
-                out.write(u'(None Found!)')
+                out.write(b'(None Found!)')
             else:
-                out.write(pk)
-            out.write(u'\n\n')
-            out.write(u'Foreign Keys\n')
-            out.write(u'------------\n')
+                out.write(pk.encode('utf8'))
+            out.write(b'\n\n')
+            out.write(b'Foreign Keys\n')
+            out.write(b'------------\n')
             fks = self.get_metadata().foreign_keys(table)
             fk = None
             for fk in fks:
-                out.write(u'  %s\n' % str(fk))
+                out.write(('  %s\n' % str(fk)).encode('utf8'))
             if fk is None:
-                out.write(u'  (None Found)')
-            out.write(u'\n\nReferences to %s\n' % table)
-            out.write(u'--------------' + '-' * len(table) + '\n')
+                out.write(b'  (None Found)')
+            out.write(('\n\nReferences to %s\n' % table).encode('utf8'))
+            out.write(b'--------------' + b'-' * len(table) + b'\n')
             fks = self.get_metadata().fields_referencing(table)
             fk = None
             for fk in fks:
-                out.write(u'  ' + str(fk) + '\n')
+                out.write(b'  ' + str(fk).encode('utf8') + b'\n')
             if fk is None:
-                out.write(u'  (None found)\n')
-            out.write(u'\n\nIndexes' + '\n')
+                out.write(b'  (None found)\n')
+            out.write(b'\n\nIndexes\n')
 
             def items():
                 for idx in self.get_metadata().indexes(table):
                     yield (idx.name, ', '.join(c.name for c in idx.columns),
                            idx.unique)
-            asciitable.draw(FakedResult(sorted(items()),
-                                        'Name Columns Unique'.split()),
-                            out, paginate=True, max_fieldsize=5000)
+            asciitable.draw(
+                FakedResult(sorted(items()), 'Name Columns Unique'.split()),
+                out, paginate=True, max_fieldsize=5000)
 
     @connected
     def show_fields(self, *globs):
@@ -503,16 +507,17 @@ class SqlPlugin(Configurable):
                     columns = table.columns
                 columns = {starname(c): c for c in columns}
                 if columns:
-                    out.write(table.name + u'\n')
-                    out.write(u'-' * len(table.name) + u'\n')
+                    out.write(table.name.encode('utf8') + b'\n')
+                    out.write(b'-' * len(table.name) + b'\n')
                 for starcol in sorted(columns):
                     col = columns[starcol]
-                    out.write(u"    %-35s%s %s\n" % (
+                    output = "    %-35s%s %s\n" % (
                         starcol,
                         col.type,
-                        'NULL' if col.nullable else 'NOT NULL'))
+                        'NULL' if col.nullable else 'NOT NULL')
+                    out.write(output.encode('utf8'))
                 if columns:
-                    out.write(u'\n')
+                    out.write(b'\n')
 
     @connected
     def show_joins(self, table):
@@ -522,9 +527,9 @@ class SqlPlugin(Configurable):
         """
         with self.pager() as out:
             for fk in self.get_metadata().foreign_keys(table):
-                out.write(u'%s\n' % fk.as_join(reverse=True))
+                out.write(fk.as_join(reverse=True).encode('utf8') + b'\n')
             for fk in self.get_metadata().fields_referencing(table):
-                out.write(u'%s\n' % fk.as_join())
+                out.write(fk.as_join().encode('utf8') + b'\n')
 
     @connected
     def what_references(self, arg):
@@ -543,7 +548,7 @@ class SqlPlugin(Configurable):
             fieldname = bits[1] if len(bits) > 1 else None
             fks = self.get_metadata().fields_referencing(tablename, fieldname)
             for fk in fks:
-                out.write(str(fk) + u'\n')
+                out.write(str(fk).encode('utf8') + b'\n')
 
     @connected
     def show_fks(self, table):
@@ -554,7 +559,7 @@ class SqlPlugin(Configurable):
         with self.pager() as out:
             fks = self.get_metadata().foreign_keys(table)
             for fk in fks:
-                out.write(str(fk) + u'\n')
+                out.write(str(fk).encode('utf8') + b'\n')
 
     def pager(self):
         return Pager()

@@ -1,12 +1,12 @@
 """Some integration tests using the chinook example db."""
 from __future__ import print_function
 
+from io import BytesIO
 import shutil
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
-import nose.tools as nt
 import mock
-from io import StringIO
+import nose.tools as nt
 
 import ipydb
 from ipydb import plugin, engine
@@ -34,7 +34,7 @@ class TestIntegraion(object):
         self.ipydb = plugin.SqlPlugin(shell=self.ipython)
         self.ipydb.metadata_accessor.debug = True  # turn off threading
         self.m = self.ipydb.auto_magics
-        self.out = StringIO()
+        self.out = BytesIO()
         self.ppager = mock.patch('ipydb.plugin.Pager', spec=plugin.Pager)
         self.mockpager = self.ppager.start()
         self.mockpager.return_value.__enter__.return_value = self.out
@@ -45,6 +45,11 @@ class TestIntegraion(object):
         self.m.flushmetadata('')
         self.m.describe('Album')
         print(self.out.getvalue())
+
+    def test_debug(self):
+        self.m.debug_ipydb('')
+        nt.assert_true(self.ipydb.debug)
+        nt.assert_true(self.ipydb.metadata_accessor.debug)
 
     def test_help(self):
         ipydb.ipydb_help()  # XXX: assert somthing...

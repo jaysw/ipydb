@@ -40,13 +40,6 @@ class ModelTest(unittest.TestCase):
         eng = self.magics.engine('')
         nt.assert_equal('barry', eng)
 
-    def test_debug(self):
-        self.ipydb.debug = False
-        self.magics.debug('')
-        nt.assert_true(self.ipydb.debug)
-        self.magics.debug('')
-        nt.assert_false(self.ipydb.debug)
-
     def test_useless_tests_for_coverage_sake(self):
         self.magics.commit('')
         self.ipydb.commit.assert_called()

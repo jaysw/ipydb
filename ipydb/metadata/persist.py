@@ -9,7 +9,7 @@ from ipydb.metadata import model as m
 log = logging.getLogger(__name__)
 
 
-def getviews(metadata):
+def get_viewdata(metadata):
     views = []
     try:
         res = metadata.bind.execute(
@@ -40,26 +40,34 @@ def write_sa_metadata(engine, sa_metadata):
     data = [{'name': t.name} for t in sa_metadata.sorted_tables]
     if data:
         engine.execute(m.Table.__table__.insert(), data)
-    views = getviews(sa_metadata)
-    if views:
-        engine.execute(m.Table.__table__.insert(), views)
+    viewdata = get_viewdata(sa_metadata)
+    if viewdata:
+        engine.execute(m.Table.__table__.insert(), viewdata)
     result = engine.execute('select name, id from dbtable')
     tableidmap = dict(result.fetchall())
 
-    def get_column_data():
-        for table in sa_metadata.sorted_tables:
-            for column in table.columns:
-                data = {
-                    'table_id': tableidmap[table.name],
-                    'name': column.name,
-                    'type': str(column.type),
-                    'primary_key': column.primary_key,
-                    'default_value': column.default,
-                    'nullable': column.nullable
-                }
-                yield data
+    def get_column_data(table):
+        for column in table.columns:
+            data = {
+                'table_id': tableidmap[table.name],
+                'name': column.name,
+                'type': str(column.type),
+                'primary_key': column.primary_key,
+                'default_value': column.default,
+                'nullable': column.nullable
+            }
+            yield data
+
+    def all_col_data():
+        for t in sa_metadata.sorted_tables:
+            for coldata in get_column_data(t):
+                yield coldata
+        for vdata in viewdata:
+            view = sa.Table(vdata['name'], sa_metadata, autoload=True)
+            for coldata in get_column_data(view):
+                yield coldata
     # XXX: SA doesn't like a generator?
-    data = list(get_column_data())
+    data = list(all_col_data())
     if data:
         engine.execute(m.Column.__table__.insert(), data)
     result = engine.execute(

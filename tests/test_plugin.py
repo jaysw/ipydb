@@ -1,6 +1,6 @@
 from configparser import DuplicateSectionError
 import re
-from io import StringIO
+from io import BytesIO, StringIO
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import nose.tools as nt
@@ -150,7 +150,7 @@ class TestSqlPlugin(object):
 
     @mock.patch('ipydb.plugin.Pager')
     def test_get_tables(self, pager):
-        pagerio = StringIO()
+        pagerio = BytesIO()
         pager.return_value.__enter__.return_value = pagerio
         self.ip.connected = False
         self.ip.show_tables()
@@ -159,21 +159,21 @@ class TestSqlPlugin(object):
         self.mock_db.tables = 'foo bar'.split()
         self.ip.show_tables()
         output = pagerio.getvalue()
-        nt.assert_in('foo', output)
-        nt.assert_in('bar', output)
+        nt.assert_in(b'foo', output)
+        nt.assert_in(b'bar', output)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_get_tables_glob(self, pager):
-        pagerio = StringIO()
+        pagerio = BytesIO()
         pager.return_value.__enter__.return_value = pagerio
         self.mock_db.tables = 'foo bar'.split()
         self.ip.show_tables('f*')
         output = pagerio.getvalue()
-        nt.assert_in('foo', output)
-        nt.assert_not_in('bar', output)
+        nt.assert_in(b'foo', output)
+        nt.assert_not_in(b'bar', output)
 
     def setup_mock_describe_db(self, pager):
-        self.pagerio = StringIO()
+        self.pagerio = BytesIO()
         pager.return_value.__enter__.return_value = self.pagerio
         company = m.Table(id=1, name='company')
         cols = [
@@ -209,48 +209,49 @@ class TestSqlPlugin(object):
         self.ip.describe('company')
         output = self.pagerio.getvalue()
         nt.assert_regexp_matches(
-            output, r'\*id\s+\|\s+INTEGER\s+\|\s+NOT NULL')
+            output.decode('utf8'), r'\*id\s+\|\s+INTEGER\s+\|\s+NOT NULL')
         nt.assert_regexp_matches(
-            output, r'name\s+\|\s+INTEGER\s+\|\s+NOT NULL')
+            output.decode('utf8'), r'name\s+\|\s+INTEGER\s+\|\s+NOT NULL')
         pkre = re.compile(r'Primary Key \(\*\)\n\-+\s+id', re.M | re.I)
-        nt.assert_regexp_matches(output, pkre)
+        nt.assert_regexp_matches(output.decode('utf8'), pkre)
         refs_re = re.compile(
             'References to company\n\-+\s+'
             'customer\(company_id\) references company\(id\)',
             re.M | re.I)
-        nt.assert_regexp_matches(output, refs_re)
+        nt.assert_regexp_matches(output.decode('utf8'), refs_re)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_describe_customer(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.describe('customer')
         output = self.pagerio.getvalue()
-        nt.assert_regexp_matches(output, r'\*id.*INTEGER.*NOT NULL')
-        nt.assert_regexp_matches(output, r'name.*INTEGER.*NOT NULL')
+        nt.assert_regexp_matches(output.decode('utf8'), r'\*id.*INTEGER.*NOT NULL')
+        nt.assert_regexp_matches(output.decode('utf8'), r'name.*INTEGER.*NOT NULL')
         nt.assert_regexp_matches(
-            output, r'company_id\s+\|\s+INTEGER\s+\|\s+NULL')
+            output.decode('utf8'), r'company_id\s+\|\s+INTEGER\s+\|\s+NULL')
         pkre = re.compile(r'Primary Key \(\*\)\n\-+\s+id', re.M | re.I)
-        nt.assert_regexp_matches(output, pkre)
+        nt.assert_regexp_matches(output.decode('utf8'), pkre)
         fkre = re.compile(
             'Foreign Keys\n\-+\s+'
             'customer\(company_id\) references company\(id\)',
             re.M | re.I)
-        nt.assert_regexp_matches(output, fkre)
+        nt.assert_regexp_matches(output.decode('utf8'), fkre)
 
     @mock.patch('ipydb.plugin.Pager')
     def test_get_columns(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_fields()
         output = self.pagerio.getvalue()
-        nt.assert_regexp_matches(output, 'company_id\s+INTEGER NULL')
+        nt.assert_regexp_matches(
+            output.decode('utf8'), 'company_id\s+INTEGER NULL')
 
     @mock.patch('ipydb.plugin.Pager')
     def test_show_joins(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_joins('customer')
         output = self.pagerio.getvalue()
-        expected = ('customer inner join company on company.id = '
-                    'customer.company_id\n')
+        expected = (b'customer inner join company on company.id = '
+                    b'customer.company_id\n')
         nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
@@ -258,7 +259,7 @@ class TestSqlPlugin(object):
         self.setup_mock_describe_db(pager)
         self.ip.what_references('company')
         output = self.pagerio.getvalue()
-        expected = 'customer(company_id) references company(id)\n'
+        expected = b'customer(company_id) references company(id)\n'
         nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
@@ -266,7 +267,7 @@ class TestSqlPlugin(object):
         self.setup_mock_describe_db(pager)
         self.ip.show_fks('customer')
         output = self.pagerio.getvalue()
-        expected = 'customer(company_id) references company(id)\n'
+        expected = b'customer(company_id) references company(id)\n'
         nt.assert_equal(expected, output)
 
     @mock.patch('ipydb.plugin.Pager')
@@ -275,7 +276,7 @@ class TestSqlPlugin(object):
         self.ip.show_fields('*ustomer.na*')
         output = self.pagerio.getvalue()
         myre = re.compile(r'customer\n\-+\s+name\s+INTEGER NOT NULL')
-        nt.assert_regexp_matches(output, myre)
+        nt.assert_regexp_matches(output.decode('utf8'), myre)
 
     def teardown(self):
         self.pmeta.stop()

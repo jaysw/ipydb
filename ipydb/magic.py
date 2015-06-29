@@ -88,14 +88,14 @@ class SqlMagics(Magics):
         return self.ipydb.get_engine()
 
     @line_magic
-    def debug(self, arg):
+    def debug_ipydb(self, arg):
         """Toggle debugging mode for ipydb."""
         if self.ipydb.debug:
-            self.ipydb.debug = False
+            self.ipydb.set_debug(False)
             root_logger = logging.getLogger()
             root_logger.setLevel(logging.WARNING)
         else:
-            self.ipydb.debug = True
+            self.ipydb.set_debug(True)
             root_logger = logging.getLogger()
             root_logger.setLevel(logging.DEBUG)
         print("ipydb debugging is", 'on' if self.ipydb.debug else 'off')
