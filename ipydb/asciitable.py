@@ -75,12 +75,11 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
 
     cols, lines = termsize()
     headings = cursor.keys()
-    heading_sizes = map(lambda x: len(x), headings)
+    sizes = list(map(lambda x: len(x), headings))
     if paginate:
         cursor = isublists(cursor, lines - 4)
         # else we assume cursor arrive here pre-paginated
     for screenrows in cursor:
-        sizes = list(heading_sizes)
         for row in screenrows:
             if row is None:
                 break

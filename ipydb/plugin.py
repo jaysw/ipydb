@@ -12,6 +12,8 @@ import fnmatch
 import functools
 import logging
 import os
+import shlex
+import subprocess
 import sys
 
 
@@ -46,18 +48,28 @@ def connected(f):
     return wrapper
 
 
-class Pager(object):  # pragma: no cover
-    def __init__(self):
-        self.out = os.popen('less -FXRiS', 'w')  # XXX: use ipython's pager
+class Popen(subprocess.Popen):
 
     def __enter__(self):
-        return self.out
+        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type == IOError and exc_val and \
-                exc_val.args == (32, 'Broken pipe'):
-            return True  # user quit pager
-        self.out.close()
+    def __exit__(self, type, value, traceback):
+        if self.stdout:
+            self.stdout.close()
+        if self.stderr:
+            self.stderr.close()
+        if self.stdin:
+            self.stdin.close()
+        # Wait for the process to terminate, to avoid zombies.
+        self.wait()
+
+    def write(self, bytestring):
+        self.stdin.write(bytestring)
+        #self.communicate(input=bytestring, timeout=10)
+
+
+def pager():
+    return Popen(shlex.split('less -FXRiS'), stdin=subprocess.PIPE)
 
 
 class SqlPlugin(Configurable):
@@ -431,7 +443,7 @@ class SqlPlugin(Configurable):
         def namestr(c):
             return ('*%s' if c.primary_key else '%s') % c.name
 
-        with self.pager() as out:
+        with pager() as out:
             items = ((namestr(c), c.type, nullstr(c.nullable))
                      for c in tbl.columns)
             out.write(b'Columns' + b'\n')
@@ -499,7 +511,7 @@ class SqlPlugin(Configurable):
                     if fnmatch.fnmatch('%s.%s' % (table.name, c.name), glob):
                         yield c
 
-        with self.pager() as out:
+        with pager() as out:
             for table in viewvalues(self.get_metadata().tables):
                 if globs:
                     columns = list(glob_columns(table))
@@ -525,7 +537,7 @@ class SqlPlugin(Configurable):
         Args:
             table: Table name.
         """
-        with self.pager() as out:
+        with pager() as out:
             for fk in self.get_metadata().foreign_keys(table):
                 out.write(fk.as_join(reverse=True).encode('utf8') + b'\n')
             for fk in self.get_metadata().fields_referencing(table):
@@ -542,7 +554,7 @@ class SqlPlugin(Configurable):
 
         Args:
             arg: Either a table name or a [table.field] name"""
-        with self.pager() as out:
+        with pager() as out:
             bits = arg.split('.', 1)
             tablename = bits[0]
             fieldname = bits[1] if len(bits) > 1 else None
@@ -556,13 +568,10 @@ class SqlPlugin(Configurable):
 
         Args:
             table: A table name."""
-        with self.pager() as out:
+        with pager() as out:
             fks = self.get_metadata().foreign_keys(table)
             for fk in fks:
                 out.write(str(fk).encode('utf8') + b'\n')
-
-    def pager(self):
-        return Pager()
 
     def render_result(self, cursor, paginate=True,
                       filepath=None, sqlformat=None):
@@ -579,12 +588,12 @@ class SqlPlugin(Configurable):
             out = open(filepath, 'w')
             sqlformat = 'csv'
         else:
-            out = self.pager()
-        with out as out:  # i'm being lazy with Pager()
+            out = pager()
+        with out as stdout:
             if sqlformat == 'csv':
-                self.format_result_csv(cursor, out=out)
+                self.format_result_csv(cursor, out=stdout)
             else:
-                asciitable.draw(cursor, out=out,
+                asciitable.draw(cursor, out=stdout,
                                 paginate=paginate,
                                 max_fieldsize=self.max_fieldsize)
 
