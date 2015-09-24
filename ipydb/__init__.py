@@ -37,7 +37,7 @@ def load_ipython_extension(ip):
         plugin = SqlPlugin(shell=ip, config=ip.config)
         configure_prompt(plugin)
         _loaded = True
-        ipydb_help()
+        print('\nLoad ipydb extension done, type %ipydb_help for documentation of ipydb')
         logging.basicConfig()
 
 

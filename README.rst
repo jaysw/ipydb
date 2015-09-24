@@ -134,14 +134,14 @@ Here's an example of what ``~/.db-connections`` might look like:
 
 .. code-block:: ini
 
-    [mydb]
+    [mydb] ; nickname
     type = mysql
     username = root
     password = xxxx
     host = localhost
     database = employees
 
-    [myotherdb]
+    [myotherdb] ; nickname
     type = sqlite
     database = /path/to/file.sqlite
 

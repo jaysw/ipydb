@@ -128,7 +128,12 @@ class SqlMagics(Magics):
               help='pretty-print sql statement and exit')
     @argument('-o', '--output', action='store', dest='file',
               help='Write sql output as CSV to the given file')
+    @argument('-d', '--debug', action='store_true',
+              help='In debug mode')
+    @argument('-P', '--pandas', action='store_true',
+              help='Return data as pandas DataFrame')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
+    
     @line_cell_magic
     def sql(self, args='', cell=None):
         """Run an sql statement against the current db connection.
@@ -169,6 +174,9 @@ class SqlMagics(Magics):
 
         """
         args = parse_argstring(self.sql, args)
+        if args.debug:
+            import ipdb; ipdb.set_trace()
+            print("\nIn debug mode:\n")
         params = None
         multiparams = None
         sql = ' '.join(args.sql_statement)
@@ -187,8 +195,12 @@ class SqlMagics(Magics):
             multiparams = self.shell.user_ns.get(args.multiparams, [])
         result = self.ipydb.execute(sql, params=params,
                                     multiparams=multiparams)
+        
+        if args.pandas:
+            return build_dataframe(result)
         if args.ret:
             return result
+
         if result and result.returns_rows:
             if args.single:
                 self.ipydb.render_result(
