@@ -35,7 +35,7 @@ class TestIntegraion(object):
         self.ipydb.metadata_accessor.debug = True  # turn off threading
         self.m = self.ipydb.auto_magics
         self.out = BytesIO()
-        self.ppager = mock.patch('ipydb.plugin.Pager', spec=plugin.Pager)
+        self.ppager = mock.patch('ipydb.plugin.pager', spec=plugin.pager)
         self.mockpager = self.ppager.start()
         self.mockpager.return_value.__enter__.return_value = self.out
 
