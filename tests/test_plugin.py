@@ -148,7 +148,7 @@ class TestSqlPlugin(object):
         self.mengine.save_connection.assert_called_with('con1', self.ip.engine,
                                                         overwrite=True)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_get_tables(self, pager):
         pagerio = BytesIO()
         pager.return_value.__enter__.return_value = pagerio
@@ -162,7 +162,7 @@ class TestSqlPlugin(object):
         nt.assert_in(b'foo', output)
         nt.assert_in(b'bar', output)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_get_tables_glob(self, pager):
         pagerio = BytesIO()
         pager.return_value.__enter__.return_value = pagerio
@@ -203,7 +203,7 @@ class TestSqlPlugin(object):
         self.database = m.Database(tables=[company, customer])
         self.md_accessor.get_metadata.return_value = self.database
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_describe_company(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.describe('company')
@@ -220,7 +220,7 @@ class TestSqlPlugin(object):
             re.M | re.I)
         nt.assert_regexp_matches(output.decode('utf8'), refs_re)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_describe_customer(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.describe('customer')
@@ -237,7 +237,7 @@ class TestSqlPlugin(object):
             re.M | re.I)
         nt.assert_regexp_matches(output.decode('utf8'), fkre)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_get_columns(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_fields()
@@ -245,7 +245,7 @@ class TestSqlPlugin(object):
         nt.assert_regexp_matches(
             output.decode('utf8'), 'company_id\s+INTEGER NULL')
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_show_joins(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_joins('customer')
@@ -254,7 +254,7 @@ class TestSqlPlugin(object):
                     b'customer.company_id\n')
         nt.assert_equal(expected, output)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_what_references(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.what_references('company')
@@ -262,7 +262,7 @@ class TestSqlPlugin(object):
         expected = b'customer(company_id) references company(id)\n'
         nt.assert_equal(expected, output)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_show_fks(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_fks('customer')
@@ -270,7 +270,7 @@ class TestSqlPlugin(object):
         expected = b'customer(company_id) references company(id)\n'
         nt.assert_equal(expected, output)
 
-    @mock.patch('ipydb.plugin.Pager')
+    @mock.patch('ipydb.plugin.pager')
     def test_get_columns_glob(self, pager):
         self.setup_mock_describe_db(pager)
         self.ip.show_fields('*ustomer.na*')
