@@ -69,12 +69,12 @@ class TestIntegration(object):
         self.m.connecturl(EXAMPLEDB)
         output = ''
         try:
-            sys.stdout = StringIO()
+            sys.stdout = BytesIO()
             self.m.sql("insert into Genre (Name) values ('Cronk')")
             output = sys.stdout.getvalue()
         finally:
             sys.stdout = sys.__stdout__
-        nt.assert_in(u'1 row affected', output)
+        nt.assert_in('1 row affected', output)
 
     def teardown(self):
         self.pgetconfigs.stop()
