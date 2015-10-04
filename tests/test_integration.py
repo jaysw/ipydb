@@ -74,7 +74,7 @@ class TestIntegration(object):
             output = sys.stdout.getvalue()
         finally:
             sys.stdout = sys.__stdout__
-        nt.assert_in('1 row affected', output)
+        nt.assert_in(b'1 row affected', output)
 
     def teardown(self):
         self.pgetconfigs.stop()
