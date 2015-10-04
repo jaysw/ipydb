@@ -1,8 +1,9 @@
 """Some integration tests using the chinook example db."""
 from __future__ import print_function
 
-from io import BytesIO
+from io import BytesIO, StringIO
 import shutil
+import sys
 
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 import mock
@@ -15,7 +16,7 @@ from ipydb import plugin, engine
 EXAMPLEDB = 'sqlite:///tests/dbs/temp.sqlite'
 
 
-class TestIntegraion(object):
+class TestIntegration(object):
 
     def setup(self):
         shutil.copyfile('tests/dbs/chinook.sqlite', 'tests/dbs/temp.sqlite')
@@ -63,6 +64,17 @@ class TestIntegraion(object):
         self.m.sqlformat('csv')
         self.m.rereflect('')
         print(self.out.getvalue())
+
+    def test_insert(self):
+        self.m.connecturl(EXAMPLEDB)
+        output = ''
+        try:
+            sys.stdout = StringIO()
+            self.m.sql("insert into Genre (Name) values ('Cronk')")
+            output = sys.stdout.getvalue()
+        finally:
+            sys.stdout = sys.__stdout__
+        nt.assert_in(u'1 row affected', output)
 
     def teardown(self):
         self.pgetconfigs.stop()
