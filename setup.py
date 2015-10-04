@@ -6,7 +6,7 @@ import ipydb
 
 requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse',
             'future']
-tests_require = ['nose', 'mock']
+tests_require = ['nose', 'mock==1.0.1']
 extras_require = ['Sphinx==1.2.3', 'sphinx-rtd-theme==0.1.6']
 description = "An IPython extension to help you write and run SQL statements"
 

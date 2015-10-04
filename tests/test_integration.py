@@ -16,6 +16,13 @@ from ipydb import plugin, engine
 EXAMPLEDB = 'sqlite:///tests/dbs/temp.sqlite'
 
 
+class DStringIO(StringIO):
+    def write(self, s):
+        if isinstance(s, bytes):
+            s = s.decode('utf8')
+        super(DStringIO, self).write(s)
+
+
 class TestIntegration(object):
 
     def setup(self):
@@ -69,12 +76,12 @@ class TestIntegration(object):
         self.m.connecturl(EXAMPLEDB)
         output = ''
         try:
-            sys.stdout = BytesIO()
+            sys.stdout = DStringIO()
             self.m.sql("insert into Genre (Name) values ('Cronk')")
             output = sys.stdout.getvalue()
         finally:
             sys.stdout = sys.__stdout__
-        nt.assert_in(b'1 row affected', output)
+        nt.assert_in(u'1 row affected', output)
 
     def teardown(self):
         self.pgetconfigs.stop()
