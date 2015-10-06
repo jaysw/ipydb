@@ -16,8 +16,6 @@ import shlex
 import subprocess
 import sys
 
-import pandas as pd
-
 from IPython.config.configurable import Configurable
 from future.utils import viewvalues
 import sqlalchemy as sa
@@ -30,6 +28,15 @@ from ipydb.completion import IpydbCompleter, ipydb_complete, reassignment
 from ipydb import engine
 from ipydb.magic import SqlMagics, register_sql_aliases
 from ipydb.metadata import model
+
+# pandas as a extra requirement
+_has_pandas = False
+
+try: 
+    import pandas as pd
+    _has_pandas = True
+except ImportError:
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -615,6 +622,10 @@ class SqlPlugin(Configurable):
         Args:
             cursor: a sqlalchemy connection cursor
         """
+        if not _has_pandas:
+            print("Warning: Pandas support not installed. Please use `pip install 'ipydb[notebook]'` "
+            "to add support for pandas dataframes in ipydb.")
+            return None
         data = cursor.fetchall()
         columns = data[0].keys() if len(data) > 1 else []
         frame = pd.DataFrame.from_records(data, columns=columns)

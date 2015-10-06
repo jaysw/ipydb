@@ -208,6 +208,7 @@ class SqlMagics(Magics):
             else:
                 self.ipydb.render_result(
                     cursor, paginate=not bool(args.file), filepath=args.file)
+
     sql.__description__ = 'Run an sql statement against ' 
             
     @magic_arguments()

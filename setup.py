@@ -5,9 +5,11 @@ from setuptools import setup
 import ipydb
 
 requires = ['SQLAlchemy', 'ipython>=1.0', 'python-dateutil', 'sqlparse',
-            'future', 'pandas>=0.16.2']
+            'future']
 tests_require = ['nose', 'mock']
-extras_require = ['Sphinx==1.2.3', 'sphinx-rtd-theme==0.1.6']
+extras_require = {'doc': ['Sphinx==1.2.3', 'sphinx-rtd-theme==0.1.6'],
+                  'notebook': ['pandas>=0.16.2']
+                  }
 description = "An IPython extension to help you write and run SQL statements"
 
 with open('README.rst', 'r', 'utf-8') as f:
@@ -28,6 +30,7 @@ setup(
     zip_safe=False,
     license='Apache 2.0',
     install_requires=requires,
+    extras_require=extras_require,
     test_suite='nose.collector',
     tests_require=tests_require,
     classifiers=(
