@@ -128,7 +128,10 @@ class SqlMagics(Magics):
               help='pretty-print sql statement and exit')
     @argument('-o', '--output', action='store', dest='file',
               help='Write sql output as CSV to the given file')
+    @argument('-P', '--pandas', action='store_true',
+              help='Return data as pandas DataFrame')
     @argument('sql_statement',  help='The SQL statement to run', nargs="*")
+    
     @line_cell_magic
     def sql(self, args='', cell=None):
         """Run an sql statement against the current db connection.
@@ -185,24 +188,28 @@ class SqlMagics(Magics):
             params = self.shell.user_ns.get(args.params, {})
         if args.multiparams:
             multiparams = self.shell.user_ns.get(args.multiparams, [])
-        result = self.ipydb.execute(sql, params=params,
+        cursor = self.ipydb.execute(sql, params=params,
                                     multiparams=multiparams)
+        
+        if not cursor:
+            return None
+        if not cursor.returns_rows:
+            s = 's' if cursor.rowcount != 1 else ''
+            print("%i row%s affected" % (cursor.rowcount, s))
+
+        if args.pandas:
+            return self.ipydb.build_dataframe(cursor)
         if args.ret:
-            return result
-        if result and result.returns_rows:
+            return cursor
+        if cursor and cursor.returns_rows:
             if args.single:
                 self.ipydb.render_result(
-                    PivotResultSet(result), paginate=False, filepath=args.file)
+                    PivotResultSet(cursor), paginate=False, filepath=args.file)
             else:
                 self.ipydb.render_result(
-                    result, paginate=not bool(args.file), filepath=args.file)
-        elif result and not result.returns_rows:
-            # XXX: do all drivers support this?
-            s = 's' if result.rowcount != 1 else ''
-            print("%i row%s affected" % (result.rowcount, s))
-    sql.__description__ = 'Run an sql statement against ' \
-        'the current ipydb connection.'
-
+                    cursor, paginate=not bool(args.file), filepath=args.file)
+         sql.__description__ = 'Run an sql statement against '
+            
     @magic_arguments()
     @argument('-d', '--delimiter', action='store', default='/',
               help='Statement delimiter. Must be on a new line by itself')

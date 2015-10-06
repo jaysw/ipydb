@@ -16,6 +16,7 @@ import shlex
 import subprocess
 import sys
 
+import pandas as pd
 
 from IPython.config.configurable import Configurable
 from future.utils import viewvalues
@@ -598,12 +599,24 @@ class SqlPlugin(Configurable):
                                 max_fieldsize=self.max_fieldsize)
 
     def format_result_csv(self, cursor, out=sys.stdout):
-        """Render an sql result set in CSV format.
+        """Render an sql cursor set in CSV format.
 
         Args:
-            result: cursor-like object: see render_result()
+            cursor: cursor-like object: see render_result()
             out: file-like object to write results to.
         """
         writer = UnicodeWriter(out)
         writer.writerow(cursor.keys())
         writer.writerows(cursor)
+
+    def build_dataframe(self, cursor):
+        """Reture an sql result set in pandas DataFrame format.
+
+        Args:
+            cursor: a sqlalchemy connection cursor
+        """
+        data = cursor.fetchall()
+        columns = data[0].keys() if len(data) > 1 else []
+        frame = pd.DataFrame.from_records(data, columns=columns)
+        return frame
+
