@@ -21,7 +21,11 @@ import os
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.engine.url import URL
-from IPython.utils.path import locate_profile
+try:
+    from IPython.paths import locate_profile
+except ImportError:
+    # IPython 3 support
+    from IPython.utils.path import locate_profile
 
 from ipydb.utils import timer
 from . import model as m

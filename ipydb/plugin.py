@@ -16,8 +16,12 @@ import shlex
 import subprocess
 import sys
 
+try:
+    from traitlets.config.configurable import Configurable
+except ImportError:
+    # IPython 3 support
+    from IPython.config.configurable import Configurable
 
-from IPython.config.configurable import Configurable
 from future.utils import viewvalues
 import sqlalchemy as sa
 
