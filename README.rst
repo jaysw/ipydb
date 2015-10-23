@@ -1,15 +1,12 @@
-ipydb: Work with databases in IPython 
+ipydb: Work with databases in IPython
 =====================================
-
-Forked from [https://github.com/jaysw/ipydb](https://github.com/jaysw/ipydb)
-
-
-.. image:: https://travis-ci.org/litaotao/ipydb.svg?branch=master
-     :target: https://travis-ci.org/litaotao/ipydb
+ 
+.. image:: https://travis-ci.org/jaysw/ipydb.svg?branch=master
+     :target: https://travis-ci.org/jaysw/ipydb
 
 
-.. image:: https://coveralls.io/repos/litaotao/ipydb/badge.png?branch=master
-     :target: https://coveralls.io/r/litaotao/ipydb?branch=master
+.. image:: https://coveralls.io/repos/jaysw/ipydb/badge.svg?branch=master&service=github
+     :target: https://coveralls.io/r/jaysw/ipydb?branch=master
 
 
 ipydb is an `IPython <http://ipython.org>`_ plugin for running SQL queries and viewing their results.
