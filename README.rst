@@ -1,12 +1,15 @@
-ipydb: Work with databases in IPython
+ipydb: Work with databases in IPython 
 =====================================
- 
-.. image:: https://travis-ci.org/jaysw/ipydb.svg?branch=master
-     :target: https://travis-ci.org/jaysw/ipydb
+
+Forked from [https://github.com/jaysw/ipydb](https://github.com/jaysw/ipydb)
 
 
-.. image:: https://coveralls.io/repos/jaysw/ipydb/badge.png?branch=master
-     :target: https://coveralls.io/r/jaysw/ipydb?branch=master
+.. image:: https://travis-ci.org/litaotao/ipydb.svg?branch=master
+     :target: https://travis-ci.org/litaotao/ipydb
+
+
+.. image:: https://coveralls.io/repos/litaotao/ipydb/badge.png?branch=master
+     :target: https://coveralls.io/r/litaotao/ipydb?branch=master
 
 
 ipydb is an `IPython <http://ipython.org>`_ plugin for running SQL queries and viewing their results.
@@ -134,14 +137,14 @@ Here's an example of what ``~/.db-connections`` might look like:
 
 .. code-block:: ini
 
-    [mydb]
+    [mydb] ; nickname
     type = mysql
     username = root
     password = xxxx
     host = localhost
     database = employees
 
-    [myotherdb]
+    [myotherdb] ; nickname
     type = sqlite
     database = /path/to/file.sqlite
 
