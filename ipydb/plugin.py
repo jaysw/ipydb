@@ -628,12 +628,12 @@ class SqlPlugin(Configurable):
             cursor: a sqlalchemy connection cursor
         """
         if not _has_pandas:
-            print("Warning: Pandas support not installed. Please use `pip install 'ipydb[notebook]'` "
-            "to add support for pandas dataframes in ipydb.")
+            print("Warning: Pandas support not installed."
+                  "Please use `pip install 'ipydb[notebook]'` "
+                  "to add support for pandas dataframes in ipydb.")
             return None
 
-        data = cursor.fetchall()
-        columns = data[0].keys() if len(data) > 1 else []
+        data = cursor.fetchall()  # XXX: clamp upper limit on fetch here
+        columns = cursor.keys()
         frame = pd.DataFrame.from_records(data, columns=columns)
         return frame
-
