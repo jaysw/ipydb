@@ -6,7 +6,7 @@ install_aliases()
 import itertools
 import sys
 
-from past.builtins import basestring
+from future.utils import string_types
 
 from .utils import termsize
 
@@ -84,7 +84,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
             if row is None:
                 break
             for idx, value in enumerate(row):
-                if not isinstance(value, basestring):
+                if not isinstance(value, string_types):
                     value = str(value)
                 size = max(sizes[idx], len(value))
                 sizes[idx] = min(size, max_fieldsize)
@@ -95,7 +95,7 @@ def draw(cursor, out=sys.stdout, paginate=True, max_fieldsize=100):
             for idx, size in enumerate(sizes):
                 fmt = '| %%-%is ' % size
                 value = rw[idx]
-                if not isinstance(value, basestring):
+                if not isinstance(value, string_types):
                     value = str(value)
                 if len(value) > max_fieldsize:
                     value = value[:max_fieldsize - 5] + '[...]'
